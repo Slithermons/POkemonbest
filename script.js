@@ -29,92 +29,6 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     return distance;
 }
 
-// Get user's location and watch for changes
-if (navigator.geolocation) {
-    // Get initial position
-    navigator.geolocation.getCurrentPosition(
-        // Success Callback for initial load
-        position => {
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            currentUserLocation = { lat, lon }; // Store initial location
-            map.setView([lat, lon], 16); // Center map on user's location
-
-            // Add or update user marker
-            if (!userMarker) {
-                userMarker = L.marker([lat, lon]).addTo(map).bindPopup('You are here!');
-            } else {
-                userMarker.setLatLng([lat, lon]);
-            }
-            userMarker.openPopup();
-
-            spawnCashDrops(lat, lon); // Spawn Cash Drops near the user
-            spawnRivals(lat, lon); // Spawn Rivals near the user
-        },
-        // Error Callback for initial load
-        () => {
-            console.log("Geolocation failed on initial load. Using default location.");
-            const defaultLat = 51.505;
-            const defaultLon = -0.09;
-            currentUserLocation = { lat: defaultLat, lon: defaultLon }; // Store default location
-
-            // Add default location marker if no user marker exists
-             if (!userMarker) {
-                userMarker = L.marker([defaultLat, defaultLon]).addTo(map).bindPopup('Default location.');
-                userMarker.openPopup();
-            }
-
-            spawnCashDrops(defaultLat, defaultLon); // Spawn Cash Drops near default location
-            spawnRivals(defaultLat, defaultLon); // Spawn Characters near default location
-        }
-    );
-
-    // Watch for position changes
-    navigator.geolocation.watchPosition(
-        // Success Callback for updates
-        position => {
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            currentUserLocation = { lat, lon }; // Update current location
-
-            // Update user marker position
-            if (!userMarker) {
-                 userMarker = L.marker([lat, lon]).addTo(map).bindPopup('You are here!');
-            } else {
-                userMarker.setLatLng([lat, lon]);
-            }
-            // Optionally re-center map on user movement: map.panTo([lat, lon]);
-            console.log("User location updated:", currentUserLocation);
-        },
-        // Error Callback for updates
-        error => {
-            console.error("Error watching position:", error.message);
-        },
-        // Options for watchPosition
-        {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
-        }
-    );
-
-} else {
-    // Geolocation not supported
-    console.log("Geolocation is not supported by this browser.");
-    const defaultLat = 51.505;
-    const defaultLon = -0.09;
-    currentUserLocation = { lat: defaultLat, lon: defaultLon }; // Store default location
-
-    // Add default location marker
-    if (!userMarker) {
-        userMarker = L.marker([defaultLat, defaultLon]).addTo(map).bindPopup('Default location.');
-        userMarker.openPopup();
-    }
-
-    spawnCashDrops(defaultLat, defaultLon); // Spawn Cash Drops near default location
-    spawnRivals(defaultLat, defaultLon); // Spawn Rivals near default location
-}
-
 // --- Cash Drop Data and Spawning ---
 const cashDropData = { name: 'Cash Drop', minAmount: 50, maxAmount: 500 };
 
@@ -261,23 +175,8 @@ function displayBases(bases) {
     });
 
     // Ensure the popup listener is attached (only needs to be done once)
-    if (!map.listens('popupopen')) {
-                 map.on('popupopen', function(e) {
-            const joinButton = e.popup._contentNode.querySelector('.join-button');
-            if (joinButton) {
-                // Remove previous listener if any to prevent duplicates
-                joinButton.onclick = null;
-                joinButton.onclick = function() {
-                    const orgName = this.getAttribute('data-org-name'); // Read updated attribute
-                    const orgAbbr = this.getAttribute('data-org-abbr'); // Read updated attribute
-                    const baseLat = parseFloat(this.getAttribute('data-base-lat'));
-                    const baseLon = parseFloat(this.getAttribute('data-base-lon'));
-                    joinOrganizationManually(orgName, orgAbbr, baseLat, baseLon); // Call renamed function
-                    map.closePopup();
-                }
-            }
-         });
-    }
+    // This listener is now handled by handlePopupOpenForActions
+    // if (!map.listens('popupopen')) { ... }
 }
 
 
@@ -335,6 +234,8 @@ async function findAndJoinInitialOrganization(userLat, userLon) { // Renamed fun
     if (!nearbyBases || nearbyBases.length === 0) {
         console.log("No bases found within search radius.");
         // Optionally expand search radius here or inform user
+        // Update markers even if no bases found, to reflect current state (no org)
+        updateBusinessMarkers(); // Ensure UI updates even if no org is joined
         return;
     }
 
@@ -579,35 +480,42 @@ function processBusinessElements(elements) {
         // Basic profit potential (can be refined)
         const potential = tags.shop === 'supermarket' ? 100 : (tags.amenity === 'restaurant' ? 75 : 50);
 
-        const businessInfo = {
-            id: element.id,
-            name: name,
-            lat: lat,
-            lon: lon,
-            type: tags.shop || tags.amenity,
-            potential: potential, // Base potential for income
-            lastCollected: 0 // Timestamp of last collection
-        };
-        businessesCache[businessInfo.id] = businessInfo;
-        businesses.push(businessInfo);
+        // Only add to cache if not already present (or update if needed)
+        if (!businessesCache[element.id]) {
+            const businessInfo = {
+                id: element.id,
+                name: name,
+                lat: lat,
+                lon: lon,
+                type: tags.shop || tags.amenity,
+                potential: potential, // Base potential for income
+                lastCollected: 0, // Timestamp of last collection
+                isControlled: false, // Default to not controlled
+                marker: null // Placeholder for marker
+            };
+            businessesCache[businessInfo.id] = businessInfo;
+            businesses.push(businessInfo);
+        } else {
+            // Optionally update existing cache entry if needed, but avoid duplicates in the returned array
+        }
     });
-    return businesses;
+    return businesses; // Return only newly processed businesses for displayBusinesses
 }
 
 // Function to display business markers, checking territory
 function displayBusinesses(businesses) {
      businesses.forEach(businessInfo => {
+        // This function now primarily adds *new* markers. Updates are handled by updateBusinessMarkers.
         if (displayedBusinessIds.has(businessInfo.id)) {
-             // If already displayed, potentially update its icon/popup if org changed
-             updateSingleBusinessMarker(businessInfo.id);
+            // If ID is already displayed, skip adding a new marker.
+            // updateSingleBusinessMarker will handle updates later if needed.
             return;
         }
 
-        let icon = businessIcon;
+        let icon = businessIcon; // Default icon
         let popupContent = `<b>${businessInfo.name}</b><br>(${businessInfo.type})`;
+        // Initial control check (will be re-checked by updateBusinessMarkers)
         let isControlled = false;
-
-        // Check if player is in an org and business is within territory
         if (currentUserOrganization && currentOrganizationBaseLocation) {
             const distanceToBase = calculateDistance(
                 businessInfo.lat, businessInfo.lon,
@@ -615,9 +523,8 @@ function displayBusinesses(businesses) {
             );
             if (distanceToBase <= TERRITORY_RADIUS) {
                 isControlled = true;
-                icon = controlledBusinessIcon; // Use green icon
-                // Add profit info and collect button
-                const profit = calculatePotentialProfit(businessInfo);
+                icon = controlledBusinessIcon;
+                const profit = calculatePotentialProfit(businessInfo); // Calculate initial potential profit
                 popupContent += `<br>Potential Profit: $${profit}<br><button class="collect-button" data-business-id="${businessInfo.id}">Collect Profit</button>`;
             }
         }
@@ -626,17 +533,17 @@ function displayBusinesses(businesses) {
             .addTo(businessLayer)
             .bindPopup(popupContent);
 
-        // Store marker reference in cache for updates
+        // Store marker reference and initial control status in cache
         businessesCache[businessInfo.id].marker = marker;
-        businessesCache[businessInfo.id].isControlled = isControlled; // Store control status
+        businessesCache[businessInfo.id].isControlled = isControlled;
 
-        displayedBusinessIds.add(businessInfo.id);
+        displayedBusinessIds.add(businessInfo.id); // Mark as displayed
      });
 
- // Add ONE listener for collect/join buttons using delegation
- if (!map.listens('popupopen', handlePopupOpenForActions)) { // Check if listener exists
-    map.on('popupopen', handlePopupOpenForActions);
- }
+     // Add ONE listener for collect/join buttons using delegation (if not already added)
+     if (!map.listens('popupopen', handlePopupOpenForActions)) {
+        map.on('popupopen', handlePopupOpenForActions);
+     }
 }
 
 // Combined handler for popup open to attach button listeners
@@ -669,7 +576,7 @@ function handlePopupOpenForActions(e) {
 
 // Function to update existing business markers (e.g., when joining/leaving org)
 function updateBusinessMarkers() {
-    console.log("Updating business markers based on organization status...");
+    console.log("Updating ALL displayed business markers based on organization status...");
     let controlledBusinessesChanged = false; // Flag to see if *any* business changed status
     displayedBusinessIds.forEach(id => {
         const statusDidChange = updateSingleBusinessMarker(id); // Check if this specific business changed
@@ -690,7 +597,11 @@ function updateBusinessMarkers() {
 // Returns true if the control status changed, false otherwise.
 function updateSingleBusinessMarker(businessId) {
      const businessInfo = businessesCache[businessId];
-     if (!businessInfo || !businessInfo.marker) return false; // Skip if no info or marker, return false (no change)
+     // Ensure businessInfo and its marker exist before proceeding
+     if (!businessInfo || !businessInfo.marker) {
+         // console.warn(`Skipping update for business ID ${businessId}: Not found in cache or no marker.`);
+         return false;
+     }
 
      const previousControlStatus = businessInfo.isControlled; // Store old status
      let currentIcon = businessIcon;
@@ -719,17 +630,22 @@ function updateSingleBusinessMarker(businessId) {
 
      // If the business just became controlled, reset its collection time to start profit now
      if (statusChanged && isNowControlled) {
-         businessInfo.lastCollected = Date.now();
+         businessInfo.lastCollected = Date.now(); // Reset collection time
          console.log(`Business ${businessInfo.id} (${businessInfo.name}) is now controlled. Resetting lastCollected.`);
-         // Re-calculate profit and update popup content immediately
-         const profit = calculatePotentialProfit(businessInfo); // Should be 0 now
+         // Re-calculate profit (should be 0) and update popup content immediately
+         const profit = calculatePotentialProfit(businessInfo);
          currentPopupContent = `<b>${businessInfo.name}</b><br>(${businessInfo.type})<br>Potential Profit: $${profit}<br><button class="collect-button" data-business-id="${businessInfo.id}">Collect Profit</button>`;
+     } else if (statusChanged && !isNowControlled) {
+         // Business is no longer controlled, remove profit info from popup
+         console.log(`Business ${businessInfo.id} (${businessInfo.name}) is no longer controlled.`);
+         // Popup content is already reset to default above if not controlled
      }
 
 
-     // Update marker icon and popup content
+     // Update marker icon
      businessInfo.marker.setIcon(currentIcon);
-     // Only update popup if content differs to avoid unnecessary redraws
+
+     // Only update popup if content differs to avoid unnecessary redraws/flicker
      if (businessInfo.marker.getPopup().getContent() !== currentPopupContent) {
         businessInfo.marker.setPopupContent(currentPopupContent);
      }
@@ -746,14 +662,20 @@ const MAX_ACCUMULATION_MINUTES = 60; // Max profit accumulation time (e.g., 1 ho
 const MAX_ACCUMULATION_MS = MAX_ACCUMULATION_MINUTES * 60 * 1000;
 
 function calculatePotentialProfit(businessInfo) {
-    if (!businessInfo.isControlled) { // Can't generate profit if not controlled
+    // Profit only generates if controlled
+    if (!businessInfo || !businessInfo.isControlled) {
         return 0;
     }
     const now = Date.now();
-    // Use lastCollected timestamp; if 0, assume it starts accumulating now (or from when control was gained, ideally)
-    // For simplicity, we'll use lastCollected. If 0, profit starts from 'now'.
-    const lastCollectionTime = businessInfo.lastCollected || now;
+    // If lastCollected is 0, it means profit just started accumulating (or hasn't been collected yet)
+    // Use the time it became controlled if available, otherwise use 'now' (resulting in 0 profit initially)
+    // For simplicity, using lastCollected. If 0, profit starts from 'now'.
+    const lastCollectionTime = businessInfo.lastCollected || now; // Treat 0 as 'now' for calculation start
     const timeSinceLastCollect = now - lastCollectionTime;
+
+    // Ensure time difference isn't negative (e.g., clock adjustments)
+    if (timeSinceLastCollect < 0) return 0;
+
     // Cap accumulation time
     const accumulationTimeMs = Math.min(timeSinceLastCollect, MAX_ACCUMULATION_MS);
     const profit = accumulationTimeMs * PROFIT_RATE_PER_MS;
@@ -785,7 +707,7 @@ function collectProfit(businessId) {
             businessInfo.lastCollected = Date.now(); // Update last collected time
             alert(`Collected $${profit} from ${businessInfo.name}.`);
             // Update popup immediately to show $0 potential and refresh book
-             updateSingleBusinessMarker(businessId);
+             updateSingleBusinessMarker(businessId); // Update the specific marker
              updateProtectionBookUI(); // Refresh book list with updated profit
         } else {
             alert(`${businessInfo.name} has no profit to collect currently.`);
@@ -805,6 +727,7 @@ function leaveOrganization() { // Renamed function
     const orgName = currentUserOrganization.name; // Use renamed variable
     currentUserOrganization = null; // Use renamed variable
     currentOrganizationBaseLocation = null; // *** Clear base location ***
+    console.log("Left organization. Updating UI and markers.");
     updateOrganizationUI(); // Call renamed function
     updateBusinessMarkers(); // *** Update business icons/popups ***
     alert(`You have left the ${orgName}.`); // Updated message
@@ -813,66 +736,121 @@ function leaveOrganization() { // Renamed function
 
 
 // --- Initial Setup ---
-// Cooldown check removed
-updateOrganizationUI(); // Initial UI update (call renamed function)
 
-// Attach listener to leave button (use renamed variable)
+// Function to perform initial setup (fetch location, spawn items, find org, fetch initial businesses)
+async function initializeGame() {
+    console.log("Initializing game...");
+    let initialLat, initialLon;
+
+    try {
+        // Promisify getCurrentPosition for await
+        const position = await new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error("Geolocation not supported"));
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 10000, // Timeout for initial fix
+                maximumAge: 0
+            });
+        });
+        initialLat = position.coords.latitude;
+        initialLon = position.coords.longitude;
+        currentUserLocation = { lat: initialLat, lon: initialLon };
+        console.log("Geolocation successful:", currentUserLocation);
+        map.setView([initialLat, initialLon], 16);
+        if (!userMarker) {
+            userMarker = L.marker([initialLat, initialLon]).addTo(map).bindPopup('You are here!');
+        } else {
+            userMarker.setLatLng([initialLat, initialLon]);
+        }
+        userMarker.openPopup();
+
+    } catch (error) {
+        console.warn("Geolocation failed on initial load or timed out. Using default location.", error);
+        initialLat = 51.505; // Default lat
+        initialLon = -0.09;  // Default lon
+        currentUserLocation = { lat: initialLat, lon: initialLon };
+        map.setView([initialLat, initialLon], 13); // Wider view for default
+        if (!userMarker) {
+            userMarker = L.marker([initialLat, initialLon]).addTo(map).bindPopup('Default location.');
+            userMarker.openPopup();
+        }
+    }
+
+    // Spawn initial items near the starting location
+    spawnCashDrops(initialLat, initialLon);
+    spawnRivals(initialLat, initialLon);
+
+    // Attempt to find/join the initial organization
+    await findAndJoinInitialOrganization(initialLat, initialLon);
+
+    // *** Fetch initial businesses for the current view AFTER attempting to join org ***
+    const initialBounds = map.getBounds();
+    console.log("Fetching initial businesses for bounds:", initialBounds);
+    const initialBusinesses = await fetchBusinessesInBounds(initialBounds);
+    displayBusinesses(initialBusinesses); // Display newly fetched businesses
+
+    // *** Explicitly update markers and UI AFTER initial businesses are displayed ***
+    console.log("Running initial business marker update.");
+    updateBusinessMarkers(); // This updates icons/popups based on org status and updates Protection Book
+
+    // Start watching for position changes (if geolocation available)
+    if (navigator.geolocation && navigator.geolocation.watchPosition) {
+        navigator.geolocation.watchPosition(
+            position => { // Success Callback for updates
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                currentUserLocation = { lat, lon }; // Update current location
+                if (userMarker) {
+                    userMarker.setLatLng([lat, lon]);
+                }
+                console.log("User location updated:", currentUserLocation);
+                // Optional: Re-center map: map.panTo([lat, lon]);
+                // Optional: Fetch new data if user moves significantly? (Could use map.moveend)
+            },
+            error => { // Error Callback for updates
+                console.error("Error watching position:", error.message);
+            },
+            { // Options for watchPosition
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
+    } else {
+         console.log("Geolocation is not supported or watchPosition unavailable. Position watching disabled.");
+    }
+}
+
+// Initial UI update (shows 'None' initially before async operations)
+updateOrganizationUI();
+
+// Attach listener to leave button
 leaveOrganizationButton.addEventListener('click', leaveOrganization);
 
+// Start the game initialization process
+initializeGame();
 
-// Modify the initial geolocation success callback to be async
-if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-        async position => { // Make this async
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            currentUserLocation = { lat, lon };
-            map.setView([lat, lon], 16);
-            if (!userMarker) {
-                userMarker = L.marker([lat, lon]).addTo(map).bindPopup('You are here!');
-            } else {
-                userMarker.setLatLng([lat, lon]);
-            }
-            userMarker.openPopup();
+// --- Protection Book Minimize/Show Logic ---
+const protectionBookDiv = document.getElementById('protection-book');
+const minimizeBookBtn = protectionBookDiv.querySelector('.minimize-btn');
+const showBookBtn = document.getElementById('show-book-btn');
 
-            spawnCashDrops(lat, lon);
-            spawnRivals(lat, lon);
-            await findAndJoinInitialOrganization(lat, lon); // Await the search/join process
-            // updateBusinessMarkers(); // This is now called within findAndJoinInitialOrganization and map moveend
-        },
-        async () => { // Error callback for initial position - make async
-            console.log("Geolocation failed on initial load. Using default location.");
-            const defaultLat = 51.505;
-            const defaultLon = -0.09;
-            currentUserLocation = { lat: defaultLat, lon: defaultLon };
-             if (!userMarker) {
-                userMarker = L.marker([defaultLat, defaultLon]).addTo(map).bindPopup('Default location.');
-                userMarker.openPopup();
-            }
-            spawnCashDrops(defaultLat, defaultLon);
-            spawnRivals(defaultLat, defaultLon);
-            await findAndJoinInitialOrganization(defaultLat, defaultLon); // Await the search/join process
-             // updateBusinessMarkers(); // This is now called within findAndJoinInitialOrganization and map moveend
-        }
-    );
-    // ... rest of watchPosition logic remains the same ...
-} else {
-     // Geolocation not supported - handle initial setup
-    console.log("Geolocation is not supported by this browser.");
-    const defaultLat = 51.505;
-    const defaultLon = -0.09;
-    currentUserLocation = { lat: defaultLat, lon: defaultLon };
-    if (!userMarker) {
-        userMarker = L.marker([defaultLat, defaultLon]).addTo(map).bindPopup('Default location.');
-        userMarker.openPopup();
-    }
-    spawnCashDrops(defaultLat, defaultLon);
-    spawnRivals(defaultLat, defaultLon);
-    // Need to handle initial load without geolocation too
-    findAndJoinInitialOrganization(defaultLat, defaultLon).then(() => {
-        // updateBusinessMarkers(); // Called within findAndJoin...
+if (minimizeBookBtn && showBookBtn && protectionBookDiv) {
+    minimizeBookBtn.addEventListener('click', () => {
+        protectionBookDiv.classList.add('minimized');
     });
+
+    showBookBtn.addEventListener('click', () => {
+        protectionBookDiv.classList.remove('minimized');
+    });
+} else {
+    console.error("Could not find elements needed for book minimize/show functionality.");
 }
+
+
 // --- Map Event Listeners ---
 map.on('moveend', async function() { // Use async here
     const bounds = map.getBounds();
@@ -884,9 +862,10 @@ map.on('moveend', async function() { // Use async here
 
     // Fetch businesses next
     const businessesInView = await fetchBusinessesInBounds(bounds);
-    displayBusinesses(businessesInView); // Display new businesses AND update existing ones in view
+    displayBusinesses(businessesInView); // Display new businesses
 
     // *** Explicitly update all displayed business markers AFTER new ones are processed ***
     // This ensures all visible businesses reflect the current organization status.
-    updateBusinessMarkers();
+    console.log("Map moved, running business marker update.");
+    updateBusinessMarkers(); // Update icons/popups and Protection Book
 });
