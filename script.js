@@ -1,3 +1,14 @@
+// --- Loading Screen Logic ---
+window.addEventListener('load', () => {
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingScreen) {
+        loadingScreen.style.display = 'none';
+        console.log("Loading screen hidden.");
+    } else {
+        console.error("Loading screen element not found!");
+    }
+});
+
 // Initialize the map
 const map = L.map('map').setView([51.505, -0.09], 13); // Default view if geolocation fails
 
@@ -399,6 +410,7 @@ function updateProtectionBookUI() {
             controlledCount++;
             const profit = calculatePotentialProfit(businessInfo);
             const listItem = document.createElement('li');
+            listItem.classList.add('controlled-business-item'); // Add class for styling
             // Display name and current potential profit
             listItem.innerHTML = `<span class="business-name">${businessInfo.name}</span> <span class="business-profit">$${profit}</span>`;
             // Optional: Add click listener to pan to business?
@@ -417,15 +429,21 @@ function updateProtectionBookUI() {
 }
 
 
-// Define a business icon
-const businessIcon = L.icon({
-    iconUrl: 'https://img.icons8.com/ios-glyphs/30/000000/shop.png', // Example shop icon
+// Define business icons
+const defaultBusinessIcon = L.icon({ // Icon when no org or outside territory (if no org)
+    iconUrl: 'https://img.icons8.com/ios-glyphs/30/000000/shop.png', // Black shop icon
     iconSize: [30, 30],
     iconAnchor: [15, 15],
     popupAnchor: [0, -15]
 });
-const controlledBusinessIcon = L.icon({ // Icon for businesses in player's territory
-    iconUrl: 'https://img.icons8.com/ios-filled/30/4CAF50/shop.png', // Example green shop icon
+const allowedBusinessIcon = L.icon({ // Icon for businesses IN player's territory (controlled)
+    iconUrl: 'https://img.icons8.com/ios-filled/30/4CAF50/shop.png', // Green shop icon
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -15]
+});
+const notAllowedBusinessIcon = L.icon({ // Icon for businesses OUTSIDE player's territory (when in an org)
+    iconUrl: 'https://img.icons8.com/ios-filled/30/F44336/shop.png', // Red shop icon
     iconSize: [30, 30],
     iconAnchor: [15, 15],
     popupAnchor: [0, -15]
@@ -512,21 +530,26 @@ function displayBusinesses(businesses) {
             return;
         }
 
-        let icon = businessIcon; // Default icon
+        // Start with the default icon; updateSingleBusinessMarker will set the correct one later
+        let icon = defaultBusinessIcon;
         let popupContent = `<b>${businessInfo.name}</b><br>(${businessInfo.type})`;
         // Initial control check (will be re-checked by updateBusinessMarkers)
-        let isControlled = false;
+        let isControlled = false; // Assume not controlled initially
         if (currentUserOrganization && currentOrganizationBaseLocation) {
             const distanceToBase = calculateDistance(
                 businessInfo.lat, businessInfo.lon,
                 currentOrganizationBaseLocation.lat, currentOrganizationBaseLocation.lon
             );
+            // Initial check to set isControlled flag, but icon is handled by updateSingleBusinessMarker
             if (distanceToBase <= TERRITORY_RADIUS) {
                 isControlled = true;
-                icon = controlledBusinessIcon;
+                // Don't set icon here, let updateSingleBusinessMarker handle it
+                // icon = allowedBusinessIcon; // Removed this line
                 const profit = calculatePotentialProfit(businessInfo); // Calculate initial potential profit
-                popupContent += `<br>Potential Profit: $${profit}<br><button class="collect-button" data-business-id="${businessInfo.id}">Collect Profit</button>`;
+                // Popup content for controlled businesses will be added by updateSingleBusinessMarker
+                // popupContent += `<br>Potential Profit: $${profit}<br><button class="collect-button" data-business-id="${businessInfo.id}">Collect Profit</button>`; // Removed this line
             }
+            // No need for an else here to set notAllowedBusinessIcon, updateSingleBusinessMarker handles all cases
         }
 
         const marker = L.marker([businessInfo.lat, businessInfo.lon], { icon: icon })
@@ -604,22 +627,34 @@ function updateSingleBusinessMarker(businessId) {
      }
 
      const previousControlStatus = businessInfo.isControlled; // Store old status
-     let currentIcon = businessIcon;
+     let currentIcon = defaultBusinessIcon; // Start with default (black)
      let currentPopupContent = `<b>${businessInfo.name}</b><br>(${businessInfo.type})`;
      let isNowControlled = false;
 
-     // Determine current control status
+     // Determine current control status and icon
      if (currentUserOrganization && currentOrganizationBaseLocation) {
+         // Player is in an organization
          const distanceToBase = calculateDistance(
              businessInfo.lat, businessInfo.lon,
              currentOrganizationBaseLocation.lat, currentOrganizationBaseLocation.lon
          );
          if (distanceToBase <= TERRITORY_RADIUS) {
+             // Business is IN territory (Allowed)
              isNowControlled = true;
-             currentIcon = controlledBusinessIcon;
+             currentIcon = allowedBusinessIcon; // Green icon
              const profit = calculatePotentialProfit(businessInfo);
              currentPopupContent += `<br>Potential Profit: $${profit}<br><button class="collect-button" data-business-id="${businessInfo.id}">Collect Profit</button>`;
+         } else {
+             // Business is OUTSIDE territory (Not Allowed)
+             isNowControlled = false; // Ensure it's marked as not controlled
+             currentIcon = notAllowedBusinessIcon; // Red icon
+             // Basic popup content (already set above)
          }
+     } else {
+         // Player is NOT in an organization
+         isNowControlled = false; // Ensure it's marked as not controlled
+         currentIcon = defaultBusinessIcon; // Black icon
+         // Basic popup content (already set above)
      }
 
      // Check if the control status actually changed
@@ -845,6 +880,8 @@ if (minimizeBookBtn && showBookBtn && protectionBookDiv) {
 
     showBookBtn.addEventListener('click', () => {
         protectionBookDiv.classList.remove('minimized');
+        // Explicitly set display to block to ensure it becomes visible
+        protectionBookDiv.style.display = 'block';
     });
 } else {
     console.error("Could not find elements needed for book minimize/show functionality.");
