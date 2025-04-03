@@ -102,7 +102,7 @@ body {
     width: 100%;
 }
 
-#leave-group-button:hover { /* Note: ID in HTML is leave-organization-button */
+#leave-organization-button:hover { /* Corrected ID */
     background-color: #da190b;
 }
 
@@ -202,9 +202,9 @@ body {
 
 /* State when book is minimized */
 #protection-book.minimized {
-    display: none; /* Hide the book content */
+    display: none !important; /* Hide the book content - Added !important for diagnostics */
 }
 
 #protection-book.minimized + .show-book-btn {
-    display: block; /* Show the button when book is minimized */
+    display: block !important; /* Show the button when book is minimized - Added !important for diagnostics */
 }
