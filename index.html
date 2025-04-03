@@ -12,11 +12,20 @@
 <body>
     <div id="map"></div>
     <div id="dashboard">
-        <h2>Turf Info</h2> <!-- Changed dashboard title -->
-        <p>Cash: $<span id="cash-amount">0</span></p> <!-- Changed label and ID -->
-        <p>Group: <span id="user-group">None</span></p> <!-- Added group display -->
-        <button id="leave-group-button" style="display: none;">Leave Group</button> <!-- Added leave button -->
-        <!-- More dashboard elements can be added here -->
+        <div class="dashboard-header">
+             <h2>Player Info</h2> <!-- Changed title -->
+        </div>
+        <div class="dashboard-section">
+            <span class="label">Cash:</span>
+            <span class="value">$<span id="cash-amount">0</span></span>
+        </div>
+        <div class="dashboard-section">
+            <span class="label">Organization:</span> <!-- Renamed label -->
+            <span class="value" id="user-organization">None</span> <!-- Renamed ID -->
+        </div>
+        <div class="dashboard-actions">
+             <button id="leave-organization-button" style="display: none;">Leave Organization</button> <!-- Renamed ID and text -->
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"

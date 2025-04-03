@@ -23,8 +23,36 @@ body {
 
 #dashboard h2 {
     margin-top: 0;
-    font-size: 1.1em;
+    font-size: 1.2em; /* Slightly larger header */
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #ccc;
 }
+
+.dashboard-section {
+    margin-bottom: 8px;
+    display: flex; /* Use flexbox for alignment */
+    justify-content: space-between; /* Space out label and value */
+    align-items: center;
+}
+
+.dashboard-section .label {
+    font-weight: bold;
+    margin-right: 10px;
+    color: #555;
+}
+
+.dashboard-section .value {
+    text-align: right;
+    color: #333;
+}
+
+.dashboard-actions {
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+}
+
 
 /* Styling for the join button inside popups */
 .leaflet-popup-content .join-button {
