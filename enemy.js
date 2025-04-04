@@ -1,7 +1,6 @@
 // Enemy system adapted for Leaflet map
 
-// Layer group for enemy markers (initialized in script.js)
-let enemyLayer;
+// Note: enemyLayer is declared and initialized in script.js
 
 class Enemy {
     constructor(lat, lon, layerGroup) {
@@ -12,54 +11,46 @@ class Enemy {
         // Determine enemy type and properties
         this.setTypeAndProperties();
 
-        // Create Leaflet icon
-        this.icon = L.icon({
-            iconUrl: this.sprite,
-            iconSize: [40, 40], // Adjust size as needed
-            iconAnchor: [20, 40],
-            popupAnchor: [0, -40],
-            className: 'enemy-marker map-icon-darktheme' // Add classes for styling/filtering
+        // Create Leaflet divIcon for animated sprite
+        this.icon = L.divIcon({
+            html: `<div class="enemy-sprite ${this.initialDirectionClass || 'walk-down'}"></div>`, // Inner div for sprite animation
+            className: 'enemy-marker', // Main marker class (no background needed)
+            iconSize: [64, 64], // Match sprite frame size
+            iconAnchor: [32, 64] // Anchor at bottom-center
         });
 
         // Create Leaflet marker
         this.marker = L.marker([this.lat, this.lon], { icon: this.icon })
             .addTo(this.layerGroup)
-            .bindPopup(`<b>${this.name}</b><br>Power: ${this.power}<br><button class="interact-enemy-button" data-enemy-id="${this.id}">Interact</button>`); // Added ID for interaction
-
-        // Assign a unique ID (simple approach for now)
+        // Assign a unique ID *before* creating the popup
         this.id = `enemy_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-        this.marker.enemyId = this.id; // Store ID on marker for easy access in events
+
+        // Create Leaflet marker and bind popup with the correct ID
+        this.marker = L.marker([this.lat, this.lon], { icon: this.icon })
+            .addTo(this.layerGroup)
+            .bindPopup(`<b>${this.name}</b><br>Power: ${this.power}<br><button class="interact-enemy-button" data-enemy-id="${this.id}">Interact</button>`);
+
+        this.marker.enemyId = this.id; // Store ID on marker for easy access in events (optional but can be useful)
 
         console.log(`Created ${this.name} at (${this.lat.toFixed(5)}, ${this.lon.toFixed(5)}) with power ${this.power}`);
     }
 
     setTypeAndProperties() {
         const typeRoll = Math.random();
-        let iconSize;
+        // Determine name and power based on type
         if (typeRoll < 0.6) { // 60% chance for Associates
             this.name = "Associates";
-            this.sprite = "img/gunman1.png";
             this.power = Math.floor(Math.random() * (200 - 50 + 1)) + 50;
-            iconSize = [35, 35];
         } else if (typeRoll < 0.9) { // 30% chance for Soldiers
             this.name = "Soldiers";
-            this.sprite = "img/gunman2.png";
             this.power = Math.floor(Math.random() * (500 - 200 + 1)) + 200;
-            iconSize = [40, 40];
         } else { // 10% chance for Caporegimes
             this.name = "Caporegimes";
-            this.sprite = "img/gunman3.png";
             this.power = Math.floor(Math.random() * (5000 - 500 + 1)) + 500;
-            iconSize = [45, 45];
         }
-         // Recreate icon with potentially different size
-         this.icon = L.icon({
-            iconUrl: this.sprite,
-            iconSize: iconSize,
-            iconAnchor: [iconSize[0] / 2, iconSize[1]], // Adjust anchor based on size
-            popupAnchor: [0, -iconSize[1]],
-            className: 'enemy-marker map-icon-darktheme'
-        });
+        // Set initial direction (can be randomized later if needed)
+        this.initialDirectionClass = 'walk-down';
+        // No need to set icon properties here anymore, handled in constructor
     }
 
     // Simplified movement: Randomly move within a small radius
@@ -71,13 +62,29 @@ class Enemy {
         const newLon = this.lon + moveDistanceLon;
 
         // Basic boundary check (optional, keep within general area)
-        // if (newLat > MAX_LAT || newLat < MIN_LAT || newLon > MAX_LON || newLon < MIN_LON) return;
+        // Determine movement direction and update sprite class
+        let directionClass = 'walk-down'; // Default
+        const absLat = Math.abs(moveDistanceLat);
+        const absLon = Math.abs(moveDistanceLon);
+
+        if (absLat > absLon) { // Moved more vertically
+            directionClass = moveDistanceLat > 0 ? 'walk-up' : 'walk-down';
+        } else if (absLon > absLat) { // Moved more horizontally
+            directionClass = moveDistanceLon > 0 ? 'walk-right' : 'walk-left';
+        } // If equal, keep previous or default (already set to walk-down)
 
         this.lat = newLat;
         this.lon = newLon;
 
         if (this.marker) {
             this.marker.setLatLng([this.lat, this.lon]);
+
+            // Update sprite direction class
+            const spriteElement = this.marker.getElement()?.querySelector('.enemy-sprite');
+            if (spriteElement) {
+                spriteElement.classList.remove('walk-up', 'walk-down', 'walk-left', 'walk-right');
+                spriteElement.classList.add(directionClass);
+            }
         }
     }
 

@@ -404,13 +404,30 @@ body {
 
 /* --- Enemy Styles --- */
 
-/* Style for the enemy marker icon itself */
+/* Enemy marker container (no background needed) */
 .enemy-marker {
-    /* Inherits map-icon-darktheme filter by default */
-    /* Add specific adjustments if needed */
-    /* Example: slightly different brightness or saturation */
-    /* filter: invert(85%) brightness(1.2) saturate(0.8); */
+    background: none;
+    border: none;
 }
+
+/* Enemy sprite (inner div) */
+.enemy-marker .enemy-sprite {
+    width: 64px;  /* Frame width */
+    height: 64px; /* Frame height */
+    background-image: url('img/walk.png'); /* Use the same spritesheet */
+    background-repeat: no-repeat;
+    /* Animation properties: name duration steps timing iteration */
+    animation: walk-cycle 1s steps(9) infinite; /* Use same animation */
+    /* Optional: Apply a filter to differentiate enemies, e.g., slightly red tint */
+    /* filter: sepia(0.5) hue-rotate(-20deg) saturate(2); */
+}
+
+/* Direction classes for enemy sprite (same as player) */
+.enemy-sprite.walk-up { background-position-y: 0px; }
+.enemy-sprite.walk-left { background-position-y: -64px; }
+.enemy-sprite.walk-down { background-position-y: -128px; }
+.enemy-sprite.walk-right { background-position-y: -192px; }
+
 
 /* Style for the interact button inside the enemy popup */
 .leaflet-popup-content .interact-enemy-button {

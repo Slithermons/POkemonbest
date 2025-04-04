@@ -154,6 +154,8 @@ const TERRITORY_RADIUS = 2000; // 2km radius for territory control (used for pro
 const PROTECTION_ACTIVATION_RANGE = 2000; // 2km radius for activating protection
 const MAX_PROTECTING_USERS = 10; // Max users per org protecting a business
 let enemyLayer = L.layerGroup().addTo(map); // Layer group for enemies
+let cashDropLayer = L.layerGroup().addTo(map); // Layer group for cash drops
+let rivalLayer = L.layerGroup().addTo(map); // Layer group for rivals
 const protectionBookElement = document.getElementById('protection-book'); // Get protection book container
 const controlledBusinessesListElement = document.getElementById('controlled-businesses-list'); // Get list element
 const inventoryListElement = document.getElementById('inventory-list'); // Get inventory list element
@@ -542,10 +544,11 @@ function spawnCashDrops(centerLat, centerLon) {
         const cashLat = lat; // Store drop's specific lat
         const cashLon = lon; // Store drop's specific lon
 
-        const marker = L.marker([cashLat, cashLon], { icon: cashIcon }).addTo(map)
+        const marker = L.marker([cashLat, cashLon], { icon: cashIcon }).addTo(cashDropLayer) // Add to cashDropLayer
             .bindPopup(`A ${cashDropData.name} is here!`) // Updated popup text
             .on('click', () => {
                 // Pass marker and its location to the collect function
+                // NOTE: Need to adjust collectCash to remove from cashDropLayer if needed, or pass layer ref
                 collectCash(marker, cashLat, cashLon);
             });
     }
@@ -582,7 +585,7 @@ function spawnRivals(centerLat, centerLon) {
 
         const randomRival = rivalData[Math.floor(Math.random() * rivalData.length)];
 
-        const marker = L.marker([lat, lon], { icon: rivalIcon }).addTo(map) // Use rival icon
+        const marker = L.marker([lat, lon], { icon: rivalIcon }).addTo(rivalLayer) // Add to rivalLayer
             .bindPopup(`${randomRival.name} is nearby...`) // Updated popup
             .on('click', () => {
                 // TODO: Implement rival interaction logic (e.g., fight, negotiate)
@@ -1496,3 +1499,39 @@ map.on('moveend', async function() { // Use async here
     console.log("Map moved, running business marker update.");
     updateBusinessMarkers(); // Update icons/popups and Protection Book
 });
+
+// --- Zoom Level Layer Control ---
+const ZOOM_THRESHOLD = 13; // Zoom level below which minor layers are hidden
+
+function updateLayerVisibility() {
+    const currentZoom = map.getZoom();
+    console.log(`Zoom level: ${currentZoom}. Threshold: ${ZOOM_THRESHOLD}`);
+
+    // Layers to hide when zoomed out
+    const minorLayers = [enemyLayer, cashDropLayer, rivalLayer];
+
+    if (currentZoom < ZOOM_THRESHOLD) {
+        // Zoomed out: Remove minor layers if they are on the map
+        minorLayers.forEach(layer => {
+            if (map.hasLayer(layer)) {
+                map.removeLayer(layer);
+                console.log(`Removed layer due to zoom level.`);
+            }
+        });
+    } else {
+        // Zoomed in: Add minor layers if they are not on the map
+        minorLayers.forEach(layer => {
+            if (!map.hasLayer(layer)) {
+                map.addLayer(layer);
+                console.log(`Added layer due to zoom level.`);
+            }
+        });
+    }
+    // BaseLayer and BusinessLayer remain visible always for now
+}
+
+// Add listener for zoom changes
+map.on('zoomend', updateLayerVisibility);
+
+// Initial check in case the map starts zoomed out
+updateLayerVisibility();
