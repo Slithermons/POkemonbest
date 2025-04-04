@@ -1,21 +1,35 @@
 // --- Loading Screen Logic ---
+const startTime = performance.now(); // Record start time
+
 window.addEventListener('load', () => {
     const loadingScreen = document.getElementById('loading-screen');
     if (loadingScreen) {
-        loadingScreen.style.display = 'none';
-        console.log("Loading screen hidden.");
+        const elapsedTime = performance.now() - startTime;
+        const minimumLoadTime = 5000; // 5 seconds in milliseconds
+        const remainingTime = minimumLoadTime - elapsedTime;
+
+        if (remainingTime > 0) {
+            console.log(`Assets loaded in ${elapsedTime.toFixed(0)}ms. Waiting an additional ${remainingTime.toFixed(0)}ms.`);
+            setTimeout(() => {
+                loadingScreen.style.display = 'none';
+                console.log("Loading screen hidden after minimum duration.");
+            }, remainingTime);
+        } else {
+            loadingScreen.style.display = 'none';
+            console.log(`Assets loaded in ${elapsedTime.toFixed(0)}ms (>= ${minimumLoadTime}ms). Loading screen hidden immediately.`);
+        }
     } else {
         console.error("Loading screen element not found!");
     }
 });
 
 // Initialize the map
-const map = L.map('map').setView([51.505, -0.09], 13); // Default view if geolocation fails
+const map = L.map('map', { attributionControl: false }).setView([51.505, -0.09], 13); // Default view if geolocation fails, disable attribution
 
 // Add OpenStreetMap tiles
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '© OpenStreetMap contributors'
+    maxZoom: 19
+    // attribution: '© OpenStreetMap contributors' // Removed attribution
 }).addTo(map);
 
 let currentUserLocation = null; // Variable to store user's current location
