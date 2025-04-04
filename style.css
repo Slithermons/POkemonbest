@@ -37,17 +37,23 @@ body {
     justify-content: center;
     align-items: center;
     z-index: 9999; /* Ensure it's on top of everything */
+    position: relative; /* Added for absolute positioning of children */
 }
 
 #loading-screen img {
-    max-width: 90%; /* Prevent image from being too large */
-    max-height: 80%; /* Adjust max height to make space for bar */
-    margin-bottom: 20px; /* Add space between image and bar */
+    width: 100%; /* Fill the screen width */
+    height: 100%; /* Fill the screen height */
+    object-fit: cover; /* Cover the area, cropping if necessary */
+    /* Removed max-width, max-height, margin-bottom */
 }
 
 #loading-bar-container {
+    position: absolute; /* Position over the image */
+    bottom: 5%; /* Position near the bottom */
+    left: 50%; /* Center horizontally */
+    transform: translateX(-50%); /* Fine-tune horizontal centering */
     width: 60%; /* Width of the loading bar container */
-    max-width: 400px;
+    /* Removed max-width: 400px; */
     height: 10px;
     background-color: #424242; /* Darker bar background */
     border-radius: 5px;
@@ -414,7 +420,7 @@ body {
 .enemy-marker .enemy-sprite {
     width: 64px;  /* Frame width */
     height: 64px; /* Frame height */
-    background-image: url('img/walk.png'); /* Use the same spritesheet */
+    /* background-image is now set inline via JS in enemy.js */
     background-repeat: no-repeat;
     /* Animation properties: name duration steps timing iteration */
     animation: walk-cycle 1s steps(9) infinite; /* Use same animation */

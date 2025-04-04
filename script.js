@@ -114,14 +114,9 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 }
 
 // --- Item & Weapon Definitions ---
-const items = {
-    medkit: { name: "Medkit", description: "Restores some health.", type: "consumable", effect: { health: 50 } },
-    lockpick: { name: "Lockpick", description: "May bypass certain obstacles.", type: "tool" }
-};
-
-const weapons = {
-    pistol: { name: "Pistol", description: "Basic firearm.", type: "firearm", damage: 10, ammo: 6 }
-};
+// Removed old simple 'items' and 'weapons' objects.
+// We will now use itemsDatabase and equipmentDatabase from items.js and equipment.js
+// Ensure items.js and equipment.js are loaded *before* script.js in index.html
 
 // --- Player State ---
 let playerHealth = 100; // Example player health
@@ -130,6 +125,147 @@ let currentPlayerId = 'player123'; // Example unique player ID
 let currentPlayerPower = 75; // Example player power level
 let playerUsername = ''; // Variable for username
 let playerAlias = ''; // Variable for alias
+
+// --- Player Stats & Level ---
+let playerLevel = 1;
+let playerExperience = 0;
+let playerInfluence = 10;
+let playerStrength = 10;
+let playerAgility = 10;
+let playerVitality = 10;
+let playerHitRate = 50; // Base hit rate percentage?
+
+// --- Player Equipment Slots ---
+// Stores the ID of the equipped item, or null if empty
+let playerEquippedItems = {
+    [EquipmentType.HEAD]: null,
+    [EquipmentType.MASK]: null,
+    [EquipmentType.BODY]: null,
+    [EquipmentType.GLOVES]: null,
+    [EquipmentType.PANTS]: null,
+    [EquipmentType.BOOTS]: null,
+    [EquipmentType.ACCESSORY]: null,
+    [EquipmentType.CHARM]: null,
+    [EquipmentType.WEAPON]: null
+};
+
+// --- Player Derived Stats ---
+let playerDefence = 0;
+let playerEvasionRate = 0;
+let playerCriticalRate = 0;
+let playerPower = 0; // This will still be calculated, but based on base stats only now
+
+// Function to calculate player power based ONLY on base stats
+function calculatePlayerPower() {
+    // Power = Total Influence, Strength, Agility, Vitality and HitRate (Base Stats)
+    playerPower = playerInfluence + playerStrength + playerAgility + playerVitality + playerHitRate;
+    console.log(`Player BASE power recalculated: ${playerPower}`);
+    // Note: This 'playerPower' might be used for requirements or influence checks,
+    // while combat calculations might use the derived stats below.
+}
+
+
+// Function to calculate derived stats based on base stats and equipment
+function calculateDerivedStats() {
+    let totalEquipmentDefence = 0;
+    let totalEquipmentEvasionRate = 0;
+    let totalEquipmentCriticalRate = 0;
+
+    // Iterate through equipped items
+    for (const slot in playerEquippedItems) {
+        const itemId = playerEquippedItems[slot];
+        if (itemId) {
+            // IMPORTANT: Assumes getEquipmentById is available globally
+            // This requires equipment.js to be loaded BEFORE script.js in index.html
+            const equipment = getEquipmentById(itemId);
+            if (equipment) {
+                totalEquipmentDefence += equipment.getStatBonus('defence') || 0; // Use 'defence' key
+                totalEquipmentEvasionRate += equipment.getStatBonus('evasionRate') || 0;
+                totalEquipmentCriticalRate += equipment.getStatBonus('criticalRate') || 0;
+                // Add other stat bonuses if needed for other calculations
+            } else {
+                 console.warn(`Equipped item with ID ${itemId} not found in equipmentDatabase.`);
+                 // Optionally unequip the item if it's invalid
+                 // playerEquippedItems[slot] = null;
+            }
+        }
+    }
+
+    // Calculate final derived stats using formulas
+    // Defence: Vitality*2 Plus Total Defence of the Equipment
+    playerDefence = (playerVitality * 2) + totalEquipmentDefence;
+
+    // Evasion Rate: Agility/2 Plus the Total Evasion rate of the Equipment
+    playerEvasionRate = (playerAgility / 2) + totalEquipmentEvasionRate;
+
+    // Critical Rate: HitRate plus the Total Hitrate of the equipment
+    playerCriticalRate = playerHitRate + totalEquipmentCriticalRate;
+
+    console.log(`Derived stats recalculated: Defence=${playerDefence}, EvasionRate=${playerEvasionRate.toFixed(1)}%, CriticalRate=${playerCriticalRate.toFixed(1)}%`);
+    // Update UI elements if they exist
+    // e.g., document.getElementById('player-defence-display').textContent = playerDefence;
+}
+
+// --- Leveling System ---
+
+// Function to calculate XP needed for the next level (example formula)
+function calculateXPForNextLevel(level) {
+    // Simple exponential curve: 100 * (level ^ 1.5)
+    return Math.floor(100 * Math.pow(level, 1.5));
+}
+
+// Function to update the Level and XP UI elements
+function updateLevelXPUI() {
+    const levelElement = document.getElementById('player-level');
+    const xpElement = document.getElementById('player-xp');
+    const xpNextElement = document.getElementById('xp-to-next-level');
+
+    if (levelElement) levelElement.textContent = playerLevel;
+    if (xpElement) xpElement.textContent = playerExperience;
+    if (xpNextElement) xpNextElement.textContent = calculateXPForNextLevel(playerLevel);
+}
+
+// Function to add experience and handle level ups
+function addExperience(amount) {
+    if (amount <= 0) return;
+
+    playerExperience += amount;
+    console.log(`Gained ${amount} XP. Total XP: ${playerExperience}`);
+
+    let requiredXP = calculateXPForNextLevel(playerLevel);
+    let leveledUp = false;
+
+    // Check for level up (can happen multiple times)
+    while (playerExperience >= requiredXP) {
+        playerLevel++;
+        playerExperience -= requiredXP; // Subtract the XP needed for the *previous* level
+        leveledUp = true;
+        console.log(`LEVEL UP! Reached Level ${playerLevel}. Remaining XP: ${playerExperience}`);
+        // TODO: Award stat points or other benefits on level up
+        // Example: playerStrength += 1; playerAgility += 1; etc.
+        // Recalculate base power if stats increase
+        calculatePlayerPower();
+        // Recalculate derived stats as base stats might have changed
+        calculateDerivedStats();
+
+        requiredXP = calculateXPForNextLevel(playerLevel); // Calculate XP needed for the *new* current level
+    }
+
+    if (leveledUp) {
+        alert(`Congratulations! You reached Level ${playerLevel}!`);
+        // Optionally trigger some visual effect
+    }
+
+    updateLevelXPUI(); // Update the UI display
+}
+
+
+// Initial stat calculations
+calculatePlayerPower(); // Calculate base power first
+calculateDerivedStats(); // Then calculate derived stats
+updateLevelXPUI(); // Initialize Level/XP UI
+
+
 // Example: playerInventory = [ { id: 'medkit', quantity: 1 }, { id: 'pistol', ammo: 6 } ];
 
 // --- Cash Drop Data and Spawning ---
@@ -202,52 +338,264 @@ function updateInventoryUI() {
         return;
     }
 
-    // Group items by ID for display (e.g., Medkit x2)
-    const groupedInventory = playerInventory.reduce((acc, itemEntry) => {
-        acc[itemEntry.id] = (acc[itemEntry.id] || 0) + (itemEntry.quantity || 1);
-        return acc;
-    }, {});
+    // Iterate through the playerInventory array directly
+    playerInventory.forEach(itemEntry => {
+        // Get full item details from the databases
+        // Assumes items.js and equipment.js are loaded and provide these functions globally
+        const itemDefinition = getItemById(itemEntry.id) || getEquipmentById(itemEntry.id);
 
-    for (const itemId in groupedInventory) {
-        const itemDefinition = items[itemId] || weapons[itemId]; // Check both items and weapons
         if (itemDefinition) {
-            const quantity = groupedInventory[itemId];
             const listItem = document.createElement('li');
-            listItem.textContent = `${itemDefinition.name}${quantity > 1 ? ` x${quantity}` : ''}`;
-            listItem.title = itemDefinition.description; // Add tooltip
-            listItem.dataset.itemId = itemId; // Store item ID for potential click actions
-            // TODO: Add click listener for item usage
+            listItem.dataset.itemId = itemEntry.id; // Store item ID
+
+            let displayText = itemDefinition.name;
+            if (itemEntry.quantity > 1) {
+                displayText += ` x${itemEntry.quantity}`;
+            }
+
+            // Check if item is equipped
+            let isEquipped = false;
+            if (itemDefinition.itemType === 'Equipment') {
+                for (const slot in playerEquippedItems) {
+                    if (playerEquippedItems[slot] === itemEntry.id) {
+                        isEquipped = true;
+                        displayText += ` (Equipped - ${itemDefinition.equipmentType})`;
+                        break;
+                    }
+                }
+            }
+
+            listItem.innerHTML = `
+                <span title="${itemDefinition.description}">${displayText}</span>
+                <div class="item-actions">
+                    ${itemDefinition.itemType === ItemType.CONSUMABLE ? '<button class="use-item-btn">Use</button>' : ''}
+                    ${itemDefinition.itemType === 'Equipment' && !isEquipped ? '<button class="equip-item-btn">Equip</button>' : ''}
+                    ${isEquipped ? '<button class="unequip-item-btn">Unequip</button>' : ''}
+                    <button class="drop-item-btn">Drop</button>
+                 </div>
+            `;
+
             inventoryListElement.appendChild(listItem);
+        } else {
+            console.warn(`Item definition not found for ID: ${itemEntry.id} in inventory.`);
+            // Optionally add a placeholder or remove the invalid entry
         }
+    });
+
+    // Add event listeners for the buttons (using event delegation is more efficient)
+    inventoryListElement.removeEventListener('click', handleInventoryClick); // Remove previous listener if any
+    inventoryListElement.addEventListener('click', handleInventoryClick);
+
+}
+
+// Event handler for inventory clicks
+function handleInventoryClick(event) {
+    const button = event.target;
+    const listItem = button.closest('li');
+    if (!listItem) return;
+    const itemId = listItem.dataset.itemId;
+
+    if (button.classList.contains('use-item-btn')) {
+        useItem(itemId);
+    } else if (button.classList.contains('equip-item-btn')) {
+        equipItem(itemId);
+    } else if (button.classList.contains('unequip-item-btn')) {
+        unequipItem(itemId);
+    } else if (button.classList.contains('drop-item-btn')) {
+        // TODO: Implement dropItem function
+        console.log(`Drop item: ${itemId}`);
+        alert('Drop functionality not implemented yet.');
     }
 }
 
-// Function to add an item/weapon to inventory
+
+// Function to add an item/weapon to inventory (Updated)
 function addItemToInventory(itemId, quantity = 1) {
-    const itemDefinition = items[itemId] || weapons[itemId];
+    // Get full item details from the correct database
+    const itemDefinition = getItemById(itemId) || getEquipmentById(itemId);
+
     if (!itemDefinition) {
-        console.error(`Attempted to add unknown item: ${itemId}`);
+        console.error(`Attempted to add unknown item ID: ${itemId}`);
         return;
     }
 
-    // Find existing entry for stackable items
-    const existingEntryIndex = playerInventory.findIndex(entry => entry.id === itemId && itemDefinition.type === 'consumable'); // Only stack consumables for now
-
-    if (existingEntryIndex > -1 && itemDefinition.type === 'consumable') {
-        playerInventory[existingEntryIndex].quantity = (playerInventory[existingEntryIndex].quantity || 1) + quantity;
-    } else {
-        // Add new entry
-        const newEntry = { id: itemId };
-        if (itemDefinition.type === 'consumable') {
-            newEntry.quantity = quantity;
-        } else if (itemDefinition.type === 'firearm' && itemDefinition.ammo) {
-            newEntry.ammo = itemDefinition.ammo; // Add initial ammo for weapons
+    // Handle stackable items
+    if (itemDefinition.stackable) {
+        const existingEntry = playerInventory.find(entry => entry.id === itemId);
+        if (existingEntry) {
+            existingEntry.quantity = (existingEntry.quantity || 1) + quantity;
+            // Optional: Check against maxStack if needed
+            if (existingEntry.quantity > itemDefinition.maxStack) {
+                 console.warn(`Item ${itemId} exceeded max stack size. Capping at ${itemDefinition.maxStack}.`);
+                 existingEntry.quantity = itemDefinition.maxStack;
+                 // Optionally handle the overflow (e.g., create new stack, drop excess)
+            }
+        } else {
+            // Add new stackable entry
+            playerInventory.push({ id: itemId, quantity: quantity });
         }
-        playerInventory.push(newEntry);
+    } else {
+        // Add non-stackable items individually
+        for (let i = 0; i < quantity; i++) {
+            playerInventory.push({ id: itemId, quantity: 1 }); // Non-stackable always has quantity 1
+        }
     }
 
-    console.log(`Added ${quantity}x ${itemDefinition.name} to inventory.`, playerInventory);
+    console.log(`Added ${quantity}x ${itemDefinition.name} to inventory.`);
     updateInventoryUI(); // Refresh the UI
+}
+
+// Function to use a consumable item
+function useItem(itemId) {
+    const itemIndex = playerInventory.findIndex(entry => entry.id === itemId);
+    if (itemIndex === -1) {
+        console.error(`Item ${itemId} not found in inventory to use.`);
+        return;
+    }
+
+    const itemEntry = playerInventory[itemIndex];
+    const itemDefinition = getItemById(itemId); // Should be a consumable
+
+    if (!itemDefinition || itemDefinition.itemType !== ItemType.CONSUMABLE) {
+        console.error(`Item ${itemId} is not a usable consumable.`);
+        return;
+    }
+
+    console.log(`Using item: ${itemDefinition.name}`);
+
+    // --- Apply Item Effects ---
+    // Example: Basic health restoration for Medkits
+    if (itemDefinition.subType === ConsumableType.MEDKIT) {
+        const healthToRestore = 50; // Example value, could be stored on the item definition
+        playerHealth = Math.min(100, playerHealth + healthToRestore); // Cap at max health (assuming 100)
+        console.log(`Restored ${healthToRestore} health. Current health: ${playerHealth}`);
+        // TODO: Update health UI element if it exists
+        // document.getElementById('player-health-display').textContent = playerHealth;
+    } else if (itemDefinition.subType === ConsumableType.FOOD) {
+        console.log("Ate some food. Effect not implemented yet.");
+        // Apply food effects (e.g., temporary stat boost, hunger reduction)
+    } else if (itemDefinition.subType === ConsumableType.DRUG) {
+        console.log("Used a drug. Effect not implemented yet.");
+        // Apply drug effects (e.g., temporary stat boost, side effects)
+    } else {
+        console.log("Item used, but no specific effect implemented for this subtype.");
+    }
+
+    // --- Consume Item ---
+    if (itemDefinition.stackable) {
+        itemEntry.quantity -= 1;
+        if (itemEntry.quantity <= 0) {
+            playerInventory.splice(itemIndex, 1); // Remove item stack if quantity is zero
+        }
+    } else {
+        playerInventory.splice(itemIndex, 1); // Remove non-stackable item
+    }
+
+    updateInventoryUI(); // Refresh the inventory display
+}
+
+// Function to equip an item
+function equipItem(itemId) {
+    // Find the specific inventory entry for non-stackable equipment
+    // For stackable equipment (if any), this logic might need adjustment
+    const itemIndex = playerInventory.findIndex(entry => entry.id === itemId);
+     if (itemIndex === -1) {
+         console.error(`Item ${itemId} not found in inventory to equip.`);
+         alert(`Item ${itemId} not found in inventory.`);
+         return;
+     }
+    // const itemEntry = playerInventory[itemIndex]; // We don't modify the entry, just check existence
+
+    const equipmentDefinition = getEquipmentById(itemId);
+    if (!equipmentDefinition || equipmentDefinition.itemType !== 'Equipment') {
+        console.error(`Item ${itemId} is not equipable.`);
+        alert(`Item ${itemId} is not equipable.`);
+        return;
+    }
+
+    // 1. Check Requirements
+    // Create a simple player stats object for the check
+    const currentPlayerStats = {
+        level: playerLevel,
+        influence: playerInfluence,
+        strength: playerStrength,
+        agility: playerAgility,
+        vitality: playerVitality,
+        hitRate: playerHitRate
+        // Add other stats if equipment requires them
+    };
+    if (!equipmentDefinition.meetsRequirements(currentPlayerStats)) {
+        console.log(`Player does not meet requirements for ${equipmentDefinition.name}.`);
+        alert(`You do not meet the requirements to equip ${equipmentDefinition.name}.`);
+        // TODO: Show specific missing requirements
+        return;
+    }
+
+    // 2. Determine Slot
+    const targetSlot = equipmentDefinition.equipmentType; // e.g., EquipmentType.HEAD
+    if (!playerEquippedItems.hasOwnProperty(targetSlot)) {
+        console.error(`Invalid equipment slot type: ${targetSlot}`);
+        alert(`Cannot equip item: Invalid slot type.`);
+        return;
+    }
+
+    // 3. Check if Slot is Occupied and Unequip Old Item
+    const currentlyEquippedItemId = playerEquippedItems[targetSlot];
+    if (currentlyEquippedItemId) {
+        console.log(`Slot ${targetSlot} occupied by ${currentlyEquippedItemId}. Unequipping it first.`);
+        // Note: Unequip doesn't remove from inventory array, just clears the slot.
+        // The old item remains in the playerInventory array.
+        unequipItemBySlot(targetSlot); // Use helper to unequip by slot directly
+    }
+
+    // 4. Equip New Item (Set the slot to the new item's ID)
+    playerEquippedItems[targetSlot] = itemId;
+    console.log(`Equipped ${equipmentDefinition.name} (ID: ${itemId}) in slot ${targetSlot}.`);
+
+    // 5. Recalculate Stats & Update UI
+    calculateDerivedStats();
+    updateInventoryUI(); // Refresh UI to show "(Equipped)" status and change buttons
+}
+
+// Function to unequip an item (found via its ID - assumes non-stackable equipment)
+function unequipItem(itemId) {
+    let foundSlot = null;
+    for (const slot in playerEquippedItems) {
+        if (playerEquippedItems[slot] === itemId) {
+            foundSlot = slot;
+            break;
+        }
+    }
+
+    if (foundSlot) {
+        unequipItemBySlot(foundSlot);
+    } else {
+        console.error(`Item ${itemId} is not currently equipped.`);
+        // alert(`Item ${itemId} is not equipped.`); // Maybe not needed? Button shouldn't show.
+    }
+}
+
+// Helper function to unequip item directly by slot name
+function unequipItemBySlot(slotName) {
+     if (!playerEquippedItems.hasOwnProperty(slotName)) {
+         console.error(`Invalid slot name provided: ${slotName}`);
+         return;
+     }
+    const equippedItemId = playerEquippedItems[slotName];
+    if (!equippedItemId) {
+        console.log(`Slot ${slotName} is already empty.`);
+        return; // Nothing to unequip
+    }
+
+    const equipmentDefinition = getEquipmentById(equippedItemId);
+    const itemName = equipmentDefinition ? equipmentDefinition.name : `Item ID ${equippedItemId}`;
+
+    console.log(`Unequipping ${itemName} from slot ${slotName}.`);
+    playerEquippedItems[slotName] = null; // Clear the slot
+
+    // Recalculate Stats & Update UI
+    calculateDerivedStats();
+    updateInventoryUI(); // Refresh UI to remove "(Equipped)" and change buttons
 }
 
 
@@ -649,7 +997,8 @@ function activateProtection(businessId) {
 
 
     // --- All checks passed, activate/add protection ---
-    console.log(`Activating protection for ${businessInfo.name} by ${currentPlayerId} (Power: ${currentPlayerPower})`);
+    // Use the calculated playerPower (based on base stats) for protection contribution
+    console.log(`Activating protection for ${businessInfo.name} by ${currentPlayerId} (Base Power: ${playerPower})`);
 
     // Set protecting organization if it's not already set to the current one
     if (!businessInfo.protectingOrganization || businessInfo.protectingOrganization.abbreviation !== currentUserOrganization.abbreviation) {
@@ -659,8 +1008,8 @@ function activateProtection(businessId) {
         businessInfo.protectionPower = 0;
     }
 
-    // Add current player to protectors
-    businessInfo.protectingUsers.push({ userId: currentPlayerId, userPower: currentPlayerPower });
+    // Add current player to protectors, using the calculated playerPower
+    businessInfo.protectingUsers.push({ userId: currentPlayerId, userPower: playerPower });
 
     // Recalculate total protection power for this organization
     businessInfo.protectionPower = businessInfo.protectingUsers.reduce((sum, user) => sum + user.userPower, 0);
@@ -934,7 +1283,10 @@ function handlePopupOpenForActions(e) {
             const enemyId = this.getAttribute('data-enemy-id');
             const enemy = findEnemyById(enemyId); // Function from enemy.js
             if (enemy) {
-                enemy.interact(null); // Pass player object if needed later
+                const xpGained = enemy.interact(null); // Pass player object if needed later. interact now returns XP.
+                if (xpGained && xpGained > 0) {
+                    addExperience(xpGained); // Add the gained experience
+                }
             } else {
                 console.error(`Enemy with ID ${enemyId} not found for interaction.`);
             }

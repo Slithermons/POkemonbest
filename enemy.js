@@ -8,12 +8,12 @@ class Enemy {
         this.lon = lon;
         this.layerGroup = layerGroup; // Reference to the Leaflet layer group
 
-        // Determine enemy type and properties
+        // Determine enemy type, properties, and sprite sheet
         this.setTypeAndProperties();
 
-        // Create Leaflet divIcon for animated sprite
+        // Create Leaflet divIcon for animated sprite, setting background image inline
         this.icon = L.divIcon({
-            html: `<div class="enemy-sprite ${this.initialDirectionClass || 'walk-down'}"></div>`, // Inner div for sprite animation
+            html: `<div class="enemy-sprite ${this.initialDirectionClass || 'walk-down'}" style="background-image: url('${this.spriteSheet}');"></div>`, // Set background image dynamically
             className: 'enemy-marker', // Main marker class (no background needed)
             iconSize: [64, 64], // Match sprite frame size
             iconAnchor: [32, 64] // Anchor at bottom-center
@@ -38,19 +38,25 @@ class Enemy {
     setTypeAndProperties() {
         const typeRoll = Math.random();
         // Determine name and power based on type
+        // Determine name, power, and sprite sheet based on type
         if (typeRoll < 0.6) { // 60% chance for Associates
             this.name = "Associates";
             this.power = Math.floor(Math.random() * (200 - 50 + 1)) + 50;
+            this.spriteSheet = 'img/gunman1.png';
+            this.experienceRate = 10; // Base XP for Associates
         } else if (typeRoll < 0.9) { // 30% chance for Soldiers
             this.name = "Soldiers";
             this.power = Math.floor(Math.random() * (500 - 200 + 1)) + 200;
+            this.spriteSheet = 'img/gunman2.png';
+            this.experienceRate = 50; // More XP for Soldiers
         } else { // 10% chance for Caporegimes
             this.name = "Caporegimes";
             this.power = Math.floor(Math.random() * (5000 - 500 + 1)) + 500;
+            this.spriteSheet = 'img/gunman3.png';
+            this.experienceRate = 250; // High XP for Caporegimes
         }
         // Set initial direction (can be randomized later if needed)
         this.initialDirectionClass = 'walk-down';
-        // No need to set icon properties here anymore, handled in constructor
     }
 
     // Simplified movement: Randomly move within a small radius
@@ -88,12 +94,27 @@ class Enemy {
         }
     }
 
-    // Placeholder for interaction logic
+    // Interaction logic - Simulates defeating the enemy
     interact(player) {
         console.log(`Player interacting with ${this.name} (ID: ${this.id})`);
         // Example: Check distance, initiate combat, etc.
-        alert(`You encountered ${this.name} (Power: ${this.power})! Combat not implemented yet.`);
-        // TODO: Implement combat or other interaction
+
+        // Simulate immediate defeat for now
+        alert(`You defeated ${this.name} (Power: ${this.power})!`);
+        return this.defeat(); // Call defeat and return XP
+    }
+
+    // Method called when enemy is defeated
+    defeat() {
+        const xpGained = this.experienceRate;
+        console.log(`${this.name} defeated. Granting ${xpGained} XP.`);
+        this.remove(); // Remove marker from map
+        // Remove from the global enemies array
+        const index = enemies.findIndex(enemy => enemy.id === this.id);
+        if (index > -1) {
+            enemies.splice(index, 1);
+        }
+        return xpGained;
     }
 
     remove() {

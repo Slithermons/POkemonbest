@@ -53,6 +53,15 @@
         <div class="dashboard-actions">
              <button id="leave-organization-button" style="display: none;">Leave Organization</button> <!-- Renamed ID and text -->
         </div>
+        <!-- Player Level & XP -->
+        <div class="dashboard-section">
+            <span class="label">Level:</span>
+            <span class="value" id="player-level">1</span>
+        </div>
+        <div class="dashboard-section">
+            <span class="label">XP:</span>
+            <span class="value"><span id="player-xp">0</span> / <span id="xp-to-next-level">100</span></span>
+        </div>
         <!-- Inventory Section -->
         <div class="dashboard-section inventory-section">
             <span class="label">Inventory:</span>
@@ -79,7 +88,9 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
-    <script src="enemy.js"></script> <!-- Load enemy logic first -->
-    <script src="script.js"></script> <!-- Load main script after -->
+    <script src="items.js"></script>     <!-- Load item definitions -->
+    <script src="equipment.js"></script> <!-- Load equipment definitions -->
+    <script src="enemy.js"></script>     <!-- Load enemy logic -->
+    <script src="script.js"></script>    <!-- Load main script last -->
 </body>
 </html>
