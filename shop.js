@@ -65,8 +65,8 @@ class Shop {
 
         if (player.money >= price) {
             player.money -= price;
-            // Add item to player inventory (logic depends on player inventory structure)
-            player.addItemToInventory(item); // Assuming player has this method
+            // Add item to player inventory - Pass only the item ID
+            player.addItemToInventory(item.id); // Pass item.id, not the whole item object
             console.log(`${player.name} bought ${item.name} for $${price}.`);
             // Note: Shop quantity is infinite for these items, so no need to decrement.
              return { success: true, message: `Bought ${item.name} for $${price}.` };

@@ -95,6 +95,9 @@ function updateCashUI(amount) {
 
 // Function to update the inventory UI (targets list inside the modal)
 function updateInventoryUI() {
+    // Log the inventory state *when this function is called* for debugging
+    console.log('updateInventoryUI called. Current playerInventory:', JSON.stringify(playerInventory));
+
     // Get the list element each time, as it might not exist when this function is first defined
     const listElement = document.querySelector('#inventory-modal #inventory-list');
     if (!listElement) {
@@ -133,8 +136,13 @@ function updateInventoryUI() {
         // Check items and equipment databases
         const itemDefinition = itemsDatabase.get(itemId) || equipmentDatabase.get(itemId); // Use the Maps
 
+        // Log the definition found for this item ID during UI update
+        // console.log(`updateInventoryUI - Item ID: ${itemId}, Found Definition:`, itemDefinition ? JSON.stringify(itemDefinition) : 'NOT FOUND'); // Keep previous log commented for now
+
         if (itemDefinition) {
             const quantity = groupedInventory[itemId];
+            // Log the specific item and quantity being processed for UI rendering
+            console.log(`updateInventoryUI - Rendering item: ${itemId}, Name: ${itemDefinition.name}, Quantity: ${quantity}`);
             const listItem = document.createElement('li');
             listItem.textContent = `${itemDefinition.name}${quantity > 1 ? ` x${quantity}` : ''}`;
             listItem.title = itemDefinition.description || ''; // Add tooltip
@@ -166,6 +174,8 @@ function updateInventoryUI() {
             listElement.appendChild(listItem);
         }
     }
+    // Log the final HTML content of the list element after population
+    console.log('updateInventoryUI finished. Final listElement HTML:', listElement.innerHTML);
 }
 
 // Function to update the Protection Book UI
@@ -610,9 +620,14 @@ function handleShopBuyClick(event) {
         // Update game state based on result
         if (result.success) {
             currentCash = playerForShop.money; // Update global cash from the modified object
-            updateCashUI(currentCash); // Update UI
+            updateCashUI(currentCash); // Update cash UI
             // Inventory was modified directly by addItemToInventory
-            populateShopUI(); // Re-populate sell list to reflect changes
+
+            // Log inventory state *just before* updating the UI from the handler
+            console.log('Inventory state before updateInventoryUI call in handleShopBuyClick:', JSON.stringify(playerInventory));
+
+            updateInventoryUI(); // Explicitly update the main inventory modal UI
+            populateShopUI(); // Re-populate shop's sell list
             showShopMessage(result.message);
         } else {
             showShopMessage(result.message, true); // Show error message

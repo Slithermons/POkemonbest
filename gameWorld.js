@@ -176,10 +176,11 @@ function addItemToInventory(itemId, quantity = 1) {
     if (existingEntryIndex > -1 && itemDefinition.itemType === 'Consumable') {
         playerInventory[existingEntryIndex].quantity = (playerInventory[existingEntryIndex].quantity || 1) + quantity;
     } else {
-        // Add new entry
-        const newEntry = { id: itemId };
-        if (itemDefinition.itemType === 'Consumable') {
-            newEntry.quantity = quantity;
+        // Add new entry - always add quantity 1 for a new stack/item
+        const newEntry = { id: itemId, quantity: 1 };
+        // If it was a consumable and the passed quantity was > 1 (e.g., buying multiple), update quantity
+        if (itemDefinition.itemType === 'Consumable' && quantity > 1) {
+             newEntry.quantity = quantity;
         }
         // Add ammo logic if needed based on itemDefinition properties (e.g., itemDefinition.ammoCapacity)
         // else if (itemDefinition.type === 'firearm' && itemDefinition.ammo) {
@@ -187,9 +188,12 @@ function addItemToInventory(itemId, quantity = 1) {
         // }
         playerInventory.push(newEntry);
     }
+    // Add detailed log to check the array state immediately after modification
+    console.log('Player Inventory AFTER modification in addItemToInventory:', JSON.stringify(playerInventory));
 
-    console.log(`Added ${quantity}x ${itemDefinition.name} to inventory.`, playerInventory);
-    updateInventoryUI(); // Refresh the UI (Function defined in uiManager.js)
+    // Log added item, but UI update will be handled by the calling context (e.g., shop buy handler)
+    console.log(`Added ${quantity}x ${itemDefinition.name} to inventory data.`);
+    // updateInventoryUI(); // REMOVED: Let the calling function handle the UI update
 }
 
 
