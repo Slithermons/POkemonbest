@@ -16,12 +16,15 @@
             <div id="loading-bar"></div>
         </div>
     </div>
-    <div id="map"></div>
-    <div id="dashboard">
-        <div class="dashboard-header">
-             <h2>Player Info</h2> <!-- Changed title -->
-        </div>
-        <div class="dashboard-section">
+    <div id="mobile-container"> <!-- Start Mobile Container -->
+        <button id="show-dashboard-btn" class="show-ui-btn" title="Show Player Info">ℹ️</button> <!-- Show Dashboard Button -->
+        <div id="map"></div>
+        <div id="dashboard">
+            <button class="minimize-btn" title="Minimize Player Info">_</button> <!-- Minimize Dashboard Button -->
+            <div class="dashboard-header">
+                 <h2>Player Info</h2> <!-- Changed title -->
+            </div>
+            <div class="dashboard-section">
             <span class="label">Cash:</span>
             <span class="value">$<span id="cash-amount">0</span></span>
         </div>
@@ -43,8 +46,9 @@
         </ul>
     </div>
 
-    <!-- Button to show the book when minimized -->
-    <button id="show-book-btn" class="show-book-btn" title="Show Protection Book">📖</button>
+        <!-- Button to show the book when minimized -->
+        <button id="show-book-btn" class="show-ui-btn" title="Show Protection Book">📖</button> <!-- Changed class -->
+    </div> <!-- End Mobile Container -->
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="

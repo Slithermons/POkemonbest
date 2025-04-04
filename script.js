@@ -80,11 +80,13 @@ window.addEventListener('load', () => {
 // Initialize the map
 const map = L.map('map', { attributionControl: false }).setView([51.505, -0.09], 13); // Default view if geolocation fails, disable attribution
 
-// Add OpenStreetMap tiles
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19
-    // attribution: '© OpenStreetMap contributors' // Removed attribution
+// Add CartoDB Dark Matter tile layer (Reverted)
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+	// attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>', // Attribution text (control hidden)
+	subdomains: 'abcd',
+	maxZoom: 20 // CartoDB supports higher zoom
 }).addTo(map);
+
 
 let currentUserLocation = null; // Variable to store user's current location
 let userMarker = null; // Variable to store the marker for the user's location
@@ -151,7 +153,8 @@ const baseIcon = L.icon({
     iconUrl: 'https://img.icons8.com/ios-filled/50/000000/bank.png', // Example bank/building icon
     iconSize: [40, 40],
     iconAnchor: [20, 40], // Point at the bottom center
-    popupAnchor: [0, -40]
+    popupAnchor: [0, -40],
+    className: 'map-icon-darktheme' // Class for CSS filter
 });
 
 // Function to fetch bases within specific map bounds
@@ -395,7 +398,8 @@ function spawnCashDrops(centerLat, centerLon) {
         iconUrl: 'https://img.icons8.com/external-flatart-icons-flat-flatarticons/64/000000/external-money-bag-valentines-day-flatart-icons-flat-flatarticons.png', // Example money bag icon
         iconSize: [40, 40], // Adjusted size
         iconAnchor: [20, 20],
-        popupAnchor: [0, -20]
+        popupAnchor: [0, -20],
+        className: 'map-icon-darktheme' // Class for CSS filter
     });
 
     for (let i = 0; i < numDrops; i++) {
@@ -433,7 +437,8 @@ function spawnRivals(centerLat, centerLon) {
         iconUrl: 'https://img.icons8.com/ios-filled/50/000000/user-secret.png', // Example secret user icon
         iconSize: [35, 35],
         iconAnchor: [17, 17],
-        popupAnchor: [0, -17]
+        popupAnchor: [0, -17],
+        className: 'map-icon-darktheme' // Class for CSS filter
     });
 
 
@@ -502,19 +507,22 @@ const defaultBusinessIcon = L.icon({ // Icon when no org or outside territory (i
     iconUrl: 'https://img.icons8.com/ios-glyphs/30/000000/shop.png', // Black shop icon
     iconSize: [30, 30],
     iconAnchor: [15, 15],
-    popupAnchor: [0, -15]
+    popupAnchor: [0, -15],
+    className: 'map-icon-darktheme' // Class for CSS filter
 });
 const allowedBusinessIcon = L.icon({ // Icon for businesses IN player's territory (controlled)
     iconUrl: 'https://img.icons8.com/ios-filled/30/4CAF50/shop.png', // Green shop icon
     iconSize: [30, 30],
     iconAnchor: [15, 15],
     popupAnchor: [0, -15]
+    // No filter needed for colored icons? Or adjust filter? Let's skip for now.
 });
 const notAllowedBusinessIcon = L.icon({ // Icon for businesses OUTSIDE player's territory (when in an org)
     iconUrl: 'https://img.icons8.com/ios-filled/30/F44336/shop.png', // Red shop icon
     iconSize: [30, 30],
     iconAnchor: [15, 15],
     popupAnchor: [0, -15]
+     // No filter needed for colored icons? Or adjust filter? Let's skip for now.
 });
 
 
@@ -963,24 +971,54 @@ initializeGame().then(() => {
 });
 
 
-// --- Protection Book Minimize/Show Logic ---
-const protectionBookDiv = document.getElementById('protection-book');
-const minimizeBookBtn = protectionBookDiv.querySelector('.minimize-btn');
-const showBookBtn = document.getElementById('show-book-btn');
+// --- UI Minimize/Show Logic ---
 
-if (minimizeBookBtn && showBookBtn && protectionBookDiv) {
-    minimizeBookBtn.addEventListener('click', () => {
-        protectionBookDiv.classList.add('minimized');
-    });
+function setupMinimizeToggle(containerId, showButtonId) {
+    const containerDiv = document.getElementById(containerId);
+    const minimizeBtn = containerDiv ? containerDiv.querySelector('.minimize-btn') : null;
+    const showBtn = document.getElementById(showButtonId);
 
-    showBookBtn.addEventListener('click', () => {
-        protectionBookDiv.classList.remove('minimized');
-        // Explicitly set display to block to ensure it becomes visible
-        protectionBookDiv.style.display = 'block';
-    });
-} else {
-    console.error("Could not find elements needed for book minimize/show functionality.");
+    if (containerDiv && minimizeBtn && showBtn) {
+        // Minimize Action
+        minimizeBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent triggering other clicks if needed
+            containerDiv.classList.add('minimized');
+            showBtn.style.display = 'block'; // Show the corresponding show button
+            containerDiv.style.display = 'none'; // Hide the container
+        });
+
+        // Show Action
+        showBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Check specific conditions before showing
+            if (containerId === 'protection-book' && !currentUserOrganization) {
+                 console.log("Cannot show Protection Book: Not in an organization.");
+                 // Optionally alert the user or just do nothing
+                 // alert("Join an organization to view the Protection Book.");
+                 return; // Don't show the book if not in an org
+            }
+
+            containerDiv.classList.remove('minimized');
+            containerDiv.style.display = 'block'; // Make sure container is visible
+            showBtn.style.display = 'none'; // Hide the show button itself
+        });
+
+         // Initially hide the show button
+         showBtn.style.display = 'none';
+
+    } else {
+        console.error(`Could not find all elements for minimize/show functionality: ${containerId}, ${showButtonId}`);
+        if (!containerDiv) console.error(`Container not found: #${containerId}`);
+        if (containerDiv && !minimizeBtn) console.error(`Minimize button not found inside #${containerId}`);
+        if (!showBtn) console.error(`Show button not found: #${showButtonId}`);
+    }
 }
+
+// Setup for Dashboard
+setupMinimizeToggle('dashboard', 'show-dashboard-btn');
+
+// Setup for Protection Book
+setupMinimizeToggle('protection-book', 'show-book-btn');
 
 
 // --- Map Event Listeners ---
