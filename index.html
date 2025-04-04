@@ -68,6 +68,11 @@
         <div class="dashboard-actions">
              <button id="leave-organization-button" class="btn btn-red" style="display: none;">Leave Organization</button> <!-- Added classes -->
         </div>
+        <!-- Sound Settings -->
+        <div class="dashboard-section sound-settings">
+            <label for="sound-toggle">Sound:</label>
+            <input type="checkbox" id="sound-toggle" checked> <!-- Default to sound on -->
+        </div>
         <!-- Inventory Section Removed from Dashboard -->
         <!-- Equipment/Inventory/Stats Buttons -->
         <div class="dashboard-actions button-row"> <!-- Added button-row class -->
@@ -100,11 +105,11 @@
     <script src="equipment.js"></script>   <!-- Equipment definitions and logic -->
     <script src="shop.js"></script>        <!-- Shop class and logic -->
     <script src="enemy.js"></script>       <!-- Enemy class and spawning -->
-    <script src="battle.js"></script>      <!-- Battle simulation logic -->
-    <!-- Corrected Script Order -->
-    <script src="initialization.js"></script> <!-- Loading, map init, game start (needs Shop) -->
+    <!-- Load Core Logic and UI BEFORE Battle -->
     <script src="gameWorld.js"></script>   <!-- Core game state, data, logic (depends on map) -->
     <script src="uiManager.js"></script>   <!-- UI updates, DOM manipulation, event listeners (depends on map, gameWorld) -->
+    <script src="battle.js"></script>      <!-- Battle simulation logic (depends on gameWorld, uiManager) -->
+    <script src="initialization.js"></script> <!-- Loading, map init, game start (needs Shop, gameWorld, uiManager) -->
 
 
     <!-- Equipment Modal -->

@@ -1,11 +1,16 @@
 // --- Global Game State & Variables ---
+// --- Global Game State & Variables ---
+let map = null; // Declare map globally
 let currentUserLocation = null; // Variable to store user's current location { lat: number, lon: number }
 let userMarker = null; // Variable to store the marker for the user's location (Leaflet Marker)
-let baseLayer = L.layerGroup().addTo(map); // Layer group to hold base markers
-let businessLayer = L.layerGroup().addTo(map); // Layer group for businesses
-let enemyLayer = L.layerGroup().addTo(map); // Layer group for enemies
-let cashDropLayer = L.layerGroup().addTo(map); // Layer group for cash drops
-let rivalLayer = L.layerGroup().addTo(map); // Layer group for rivals
+
+// Declare layer groups globally (initialize in initialization.js)
+let baseLayer = null;
+let businessLayer = null;
+let enemyLayer = null;
+let cashDropLayer = null;
+let rivalLayer = null;
+
 let fetchedBounds = null; // Keep track of areas where bases have been fetched (Leaflet LatLngBounds)
 let basesCache = {}; // Cache found bases {id: baseInfo}
 let displayedBaseIds = new Set(); // Keep track of displayed base IDs to avoid duplicates
@@ -14,6 +19,7 @@ let displayedBusinessIds = new Set(); // Keep track of displayed business IDs
 let currentCash = 0; // Player's current cash amount
 let currentUserOrganization = null; // Variable to store the user's current organization { name: string, abbreviation: string }
 let currentOrganizationBaseLocation = null; // Store the LatLon of the joined org's base { lat: number, lon: number }
+
 
 // --- Player State ---
 let playerCurrentHp = 100; // Current health points
@@ -184,6 +190,45 @@ function calculateCharacterStats() {
 // Initial calculations (call these after equipment might be loaded/set)
 // calculatePlayerPower(); // Called in uiManager.js when stats modal opens
 // calculateCharacterStats(); // Called in uiManager.js when stats modal opens, and before battle. Also called when equipment changes.
+
+// --- Experience & Leveling ---
+function calculateExpNeeded(level) {
+    return level * 100; // Simple formula: 100 EXP for level 1, 200 for level 2, etc.
+}
+
+function gainExperience(amount) {
+    if (amount <= 0) return;
+
+    playerExperience += amount;
+    console.log(`Gained ${amount} EXP. Total: ${playerExperience}`);
+
+    let expNeeded = calculateExpNeeded(playerLevel);
+    let leveledUp = false;
+
+    // Check for level up
+    while (playerExperience >= expNeeded) {
+        playerLevel++;
+        playerExperience -= expNeeded; // Subtract EXP needed for the level just gained
+        leveledUp = true;
+        console.log(`Level Up! Reached Level ${playerLevel}. Remaining EXP: ${playerExperience}`);
+        // TODO: Add stat point allocation or other level up benefits
+        showCustomAlert(`Level Up! You reached Level ${playerLevel}!`); // Alert the player
+
+        // Recalculate needed EXP for the *new* level
+        expNeeded = calculateExpNeeded(playerLevel);
+    }
+
+    // Update UI (function to be added in uiManager.js)
+    updateExperienceUI();
+
+    // If leveled up, recalculate stats as they might depend on level (though not currently implemented)
+    if (leveledUp) {
+        calculateCharacterStats(); // Recalculate derived stats like Max HP
+        updateHpUI(); // Update HP bar in case Max HP changed
+        updateStatsModalUI(); // Update stats modal if it's open
+    }
+}
+
 
 // --- HP Management ---
 function healPlayer(amount) {

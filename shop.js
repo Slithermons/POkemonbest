@@ -29,7 +29,26 @@ class Shop {
                     shopStock[key] = { ...baseInventory.consumables[key], quantity: Infinity }; // Shops have infinite consumables
                 }
             }
+        } // End of consumables loop (Removed extra brace)
+
+        // --- Add items from items.js (itemsDatabase) ---
+        if (typeof itemsDatabase !== 'undefined') {
+            itemsDatabase.forEach((item, id) => {
+                // Only add if it's not already added (e.g., consumables)
+                // and it's not equipment (handled separately below)
+                if (!shopStock[id] && item.itemType !== ItemType.EQUIPMENT) {
+                    shopStock[id] = {
+                        ...item,
+                        price: item.price || 25, // Default price 25 for non-consumable items from items.js
+                        quantity: Infinity // Shops have infinite stock
+                    };
+                    console.log(`Added item from items.js to shop: ${item.name} ($${shopStock[id].price})`);
+                }
+            });
+        } else {
+            console.warn("itemsDatabase not found when adding items to shop inventory.");
         }
+        // --- End adding items from items.js ---
 
 
         // Add one of each base equipment type (assuming common rarity)
@@ -88,9 +107,10 @@ class Shop {
         }
 
         const item = player.inventory[itemIndex];
-        const rarity = item.rarity || 'common'; // Default to common if rarity is missing
-        const multiplier = rarityMultipliers[rarity] || 1;
-        const sellPrice = 30 * multiplier;
+        // Ensure rarity key is lowercase and uses underscores if needed for lookup
+        const rarityKey = (item.rarity || 'common').toLowerCase().replace('-', '_');
+        const multiplier = rarityMultipliers[rarityKey] || 1; // Use the defined multipliers
+        const sellPrice = 1 * multiplier; // Base price $1 * rarity multiplier
 
         player.money += sellPrice;
         // Remove item from player inventory

@@ -31,6 +31,67 @@ let isInitialLocationDone = false;
 let areAssetsPreloaded = false; // Flag for asset preloading
 let hideScreenTimeout = null; // To store the timeout for hiding the screen
 
+// --- Sound Management ---
+let isSoundEnabled = true; // Default to on, will sync with checkbox
+let bgmAudio = null;
+let bgmNeedsUserInteraction = false; // Flag to track if BGM needs interaction to start
+const battleSounds = [];
+const battleSoundPaths = [
+    'sound/gun1.mp3',
+    'sound/gun2.mp3',
+    'sound/gun3.mp3',
+    'sound/gun4.mp3'
+];
+const bgmPath = 'sound/bgm.mp3';
+
+function playSound(audioElement) {
+    if (isSoundEnabled && audioElement) {
+        audioElement.currentTime = 0; // Rewind to start
+        audioElement.play().catch(error => console.error("Error playing sound:", error));
+    }
+}
+
+function playBgm() {
+    if (isSoundEnabled && bgmAudio && bgmAudio.paused) { // Only play if paused
+        const playPromise = bgmAudio.play();
+        if (playPromise !== undefined) {
+            playPromise.then(_ => {
+                // Playback started successfully
+                bgmNeedsUserInteraction = false; // Reset flag if it starts
+                console.log("BGM playback started.");
+            }).catch(error => {
+                console.error("Error playing BGM:", error);
+                // Check if it's the interaction error
+                if (error.name === 'NotAllowedError') {
+                    console.log("BGM playback failed due to interaction policy. Waiting for user interaction.");
+                    bgmNeedsUserInteraction = true; // Set flag
+                }
+            });
+        }
+    } else if (!isSoundEnabled) {
+         console.log("playBgm called but sound is disabled.");
+    } else if (!bgmAudio) {
+         console.log("playBgm called but bgmAudio is not loaded yet.");
+    } else if (!bgmAudio.paused) {
+         // console.log("playBgm called but BGM is already playing."); // Can be noisy
+    }
+}
+
+function stopBgm() {
+    if (bgmAudio) {
+        bgmAudio.pause();
+        bgmAudio.currentTime = 0; // Reset to beginning
+    }
+}
+
+function playRandomBattleSound() {
+    if (isSoundEnabled && battleSounds.length > 0) {
+        const randomIndex = Math.floor(Math.random() * battleSounds.length);
+        playSound(battleSounds[randomIndex]);
+        console.log(`Playing battle sound: ${battleSoundPaths[randomIndex]}`);
+    }
+}
+
 // --- Asset Preloading ---
 const iconAssetsToPreload = [
     'img/walk.png',       // Player/Enemy sprite
@@ -55,17 +116,86 @@ function preloadImages(urls) {
     return Promise.all(promises);
 }
 
+function preloadAudio(urls) {
+    let promises = [];
+    urls.forEach((url, index) => {
+        promises.push(new Promise((resolve) => {
+            const audio = new Audio();
+            audio.addEventListener('canplaythrough', resolve, { once: true });
+            audio.addEventListener('error', (e) => {
+                console.error(`Error loading audio: ${url}`, e);
+                resolve(); // Resolve even on error
+            }, { once: true });
+            audio.preload = 'auto'; // Hint to the browser to load data
+            audio.src = url;
+            audio.load(); // Explicitly call load
+
+            // Store the audio elements
+            if (url === bgmPath) {
+                bgmAudio = audio;
+                bgmAudio.loop = true; // Loop background music
+            } else if (battleSoundPaths.includes(url)) {
+                battleSounds.push(audio);
+            }
+        }));
+    });
+    return Promise.all(promises);
+}
+
+
 // Start preloading assets immediately
-preloadImages(iconAssetsToPreload).then(() => {
+const imagePreloadPromise = preloadImages(iconAssetsToPreload).then(() => {
     console.log("Map icon assets preloaded (or failed gracefully).");
-    areAssetsPreloaded = true;
-    checkAndHideLoadingScreen(); // Check if other conditions are met
+    areAssetsPreloaded = true; // Mark images as preloaded
 }).catch(error => {
-    // This catch might not be strictly necessary if errors resolve the promise
     console.error("Error during image preloading:", error);
-    areAssetsPreloaded = true; // Still allow game to load even if preloading fails
-    checkAndHideLoadingScreen();
+    areAssetsPreloaded = true; // Still allow game to load
 });
+
+const audioPreloadPromise = preloadAudio([bgmPath, ...battleSoundPaths]).then(() => {
+    console.log("Audio assets preloaded (or failed gracefully).");
+    // Audio preloading doesn't block the loading screen directly,
+    // but ensures sounds are ready when needed.
+}).catch(error => {
+    console.error("Error during audio preloading:", error);
+});
+
+// Wait for image preloading before checking loading screen conditions
+imagePreloadPromise.finally(() => {
+     checkAndHideLoadingScreen(); // Check if other conditions are met
+});
+
+// Audio preloading happens in parallel but doesn't block the loading screen hide logic
+audioPreloadPromise.finally(() => {
+    console.log("Audio preloading finished (success or failure).");
+    // Attempt to play BGM immediately if sound is enabled.
+    // playBgm() will now handle the interaction requirement.
+    const soundToggle = document.getElementById('sound-toggle');
+    if (soundToggle && soundToggle.checked) {
+        isSoundEnabled = true;
+        playBgm(); // Attempt initial playback
+    } else {
+        isSoundEnabled = false;
+    }
+});
+
+// Add a one-time listener for the first user interaction to start BGM if needed
+function handleFirstInteraction() {
+    console.log("User interaction detected.");
+    if (isSoundEnabled && bgmNeedsUserInteraction && bgmAudio) {
+        console.log("Attempting to play BGM after user interaction...");
+        playBgm(); // This should now succeed
+    }
+    // Remove the listener after the first interaction
+    document.removeEventListener('click', handleFirstInteraction, { capture: true });
+    document.removeEventListener('keydown', handleFirstInteraction, { capture: true });
+    document.removeEventListener('touchstart', handleFirstInteraction, { capture: true }); // For mobile
+}
+
+// Add listeners for various interaction types, using capture phase to catch early
+document.addEventListener('click', handleFirstInteraction, { capture: true, once: true });
+document.addEventListener('keydown', handleFirstInteraction, { capture: true, once: true });
+document.addEventListener('touchstart', handleFirstInteraction, { capture: true, once: true }); // For mobile
 
 
 // Function to check all conditions and hide the loading screen
@@ -115,18 +245,8 @@ window.addEventListener('load', () => {
 });
 
 
-// Initialize the map
-const map = L.map('map', {
-    attributionControl: false, // Disable attribution text
-    zoomControl: false // Disable default zoom buttons
-}).setView([51.505, -0.09], 13); // Default view if geolocation fails
-
-// Add CartoDB Dark Matter tile layer (Reverted)
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-	// attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>', // Attribution text (control hidden)
-	subdomains: 'abcd',
-	maxZoom: 20 // CartoDB supports higher zoom
-}).addTo(map);
+// Map variable is declared globally in gameWorld.js
+// We will initialize it inside DOMContentLoaded
 
 // --- Global Base Items & Shop Instance ---
 let baseItemsForShop = { consumables: {}, equipment: {} };
@@ -175,10 +295,96 @@ function prepareBaseItemsForShop() {
 
 // --- Initial Setup ---
 
-// Function to perform initial setup (fetch location, spawn items, find org, fetch initial businesses)
-async function initializeGame() {
-    console.log("Initializing game...");
-    let initialLat = 51.505; // Default lat
+// 2. Start the game initialization process *after* the DOM is fully loaded
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("DOM fully loaded and parsed. Initializing map and layers...");
+
+    // --- Sound Toggle Listener ---
+    const soundToggle = document.getElementById('sound-toggle');
+    if (soundToggle) {
+        // Sync initial state
+        isSoundEnabled = soundToggle.checked;
+        console.log(`Initial sound state: ${isSoundEnabled}`);
+
+        soundToggle.addEventListener('change', () => {
+            isSoundEnabled = soundToggle.checked;
+            console.log(`Sound toggled: ${isSoundEnabled}`);
+            if (isSoundEnabled) {
+                playBgm(); // Start BGM if turned on
+            } else {
+                stopBgm(); // Stop BGM if turned off
+                // Optionally stop any currently playing battle sounds if needed
+                battleSounds.forEach(sound => {
+                    if (!sound.paused) {
+                        sound.pause();
+                        sound.currentTime = 0;
+                    }
+                });
+            }
+        });
+    } else {
+        console.warn("Sound toggle checkbox not found!");
+    }
+
+
+    // --- Initialize Map Object ---
+    map = L.map('map', { // Assign to global map variable
+        attributionControl: false,
+        zoomControl: false
+    }).setView([51.505, -0.09], 13); // Default view
+
+    // Add Tile Layer
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        subdomains: 'abcd',
+        maxZoom: 20
+    }).addTo(map);
+    console.log("Map object initialized and tile layer added.");
+
+    // --- Initialize and Add Layers ---
+    baseLayer = L.layerGroup().addTo(map);
+    businessLayer = L.layerGroup().addTo(map);
+    enemyLayer = L.layerGroup().addTo(map);
+    cashDropLayer = L.layerGroup().addTo(map);
+    rivalLayer = L.layerGroup().addTo(map);
+    console.log("Feature layers initialized and added to map.");
+
+    // --- Attach Map Event Listeners ---
+    map.on('popupopen', handlePopupOpenForActions);
+    console.log("Attached 'popupopen' listener to map.");
+
+    map.on('moveend', async function() {
+        if (!map) { // Add safety check for map object
+             console.warn("Map 'moveend': Map object not ready.");
+             return;
+        }
+        // Ensure necessary functions/variables are available before proceeding
+        if (typeof fetchBasesInBounds !== 'function' || typeof displayBases !== 'function' ||
+            typeof fetchBusinessesInBounds !== 'function' || typeof displayBusinesses !== 'function' ||
+            typeof updateBusinessMarkers !== 'function' || typeof updateMarkersVisibility !== 'function') {
+            console.warn("Map 'moveend': Required functions not yet available. Skipping fetch.");
+            return;
+        }
+        const bounds = map.getBounds();
+        console.log("Map view moved, fetching data for new bounds:", bounds);
+        try {
+            const basesInView = await fetchBasesInBounds(bounds);
+            displayBases(basesInView);
+            const businessesInView = await fetchBusinessesInBounds(bounds);
+            displayBusinesses(businessesInView);
+            updateBusinessMarkers();
+            if (currentUserLocation) {
+                updateMarkersVisibility(currentUserLocation.lat, currentUserLocation.lon);
+            }
+        } catch (error) {
+            console.error("Error during map 'moveend' processing:", error);
+        }
+    });
+    console.log("Attached 'moveend' listener to map.");
+
+    // --- Define the main game initialization function INSIDE DOMContentLoaded ---
+    async function initializeGame() {
+        console.log("Running initializeGame function...");
+        let initialLat = 51.505; // Default lat
     let initialLon = -0.09;  // Default lon
     let locationPermissionGranted = false; // Flag to track permission
 
@@ -275,7 +481,24 @@ async function initializeGame() {
             userMarker.setIcon(playerIcon);
         }
     }
+    // Map, layers, and listeners are now initialized *before* this function is called
+
+    // --- Create or Update Player Marker ---
+    // Player Icon definition remains here as it's specific to initialization
+    // const playerIcon = L.divIcon({ ... }); // REMOVE duplicate declaration
+    // const popupText = ...; // REMOVE duplicate declaration
+
+    if (!userMarker) {
+        userMarker = L.marker([initialLat, initialLon], { icon: playerIcon }).addTo(map).bindPopup(popupText);
+    } else {
+        userMarker.setLatLng([initialLat, initialLon]).setPopupContent(popupText);
+        if (userMarker.getIcon() !== playerIcon) { // Ensure icon is correct if marker existed
+            userMarker.setIcon(playerIcon);
+        }
+    }
     userMarker.openPopup();
+    console.log("Player marker created/updated.");
+
 
     // --- Prepare Base Items for Shop ---
     prepareBaseItemsForShop(); // Call the function here
@@ -390,45 +613,13 @@ async function initializeGame() {
     startHpRegeneration(); // Function from gameWorld.js
 
     console.log("initializeGame setup tasks complete.");
-}
+} // <<< This is the CORRECT end brace for initializeGame function definition
 
-// --- Map Event Listeners ---
-map.on('moveend', async function() { // Use async here
-    const bounds = map.getBounds();
-    console.log("Map view moved, fetching data for new bounds:", bounds);
-
-    // Fetch bases first
-    const basesInView = await fetchBasesInBounds(bounds);
-    displayBases(basesInView); // Display new bases
-
-    // Fetch businesses next
-    const businessesInView = await fetchBusinessesInBounds(bounds);
-    displayBusinesses(businessesInView); // Display new businesses
-
-    // *** Explicitly update all displayed business markers AFTER new ones are processed ***
-    // This ensures all visible businesses reflect the current organization status.
-    console.log("Map moved, running business marker update.");
-    updateBusinessMarkers(); // Update icons/popups and Protection Book
-
-    // *** Update visibility based on player distance AFTER fetching/updating markers ***
-    if (currentUserLocation) {
-        updateMarkersVisibility(currentUserLocation.lat, currentUserLocation.lon);
-    }
-});
-
-// --- Zoom Level Layer Control --- (REMOVED)
-// const ZOOM_THRESHOLD = 13;
-// function updateLayerVisibility() { ... }
-// map.on('zoomend', updateLayerVisibility);
-// updateLayerVisibility(); // Initial check removed
-
-
-// 2. Start the game initialization process (which includes location fetching)
-// initializeGame is now async and will set isInitialLocationDone when location attempt finishes
-initializeGame().then(() => {
-    console.log("initializeGame promise resolved successfully.");
-    // Note: isInitialLocationDone is set inside initializeGame's finally block
-}).catch(error => {
+    // --- Now call the main game initialization logic ---
+    console.log("Starting core game initialization (initializeGame)...");
+    initializeGame().then(() => { // Call the function defined above
+        console.log("initializeGame promise resolved successfully.");
+    }).catch(error => {
     console.error("Error during initializeGame execution:", error);
     // Ensure the flag is set even if initializeGame fails later
     // (though the finally block should handle most cases)
@@ -437,4 +628,5 @@ initializeGame().then(() => {
         isInitialLocationDone = true;
         checkAndHideLoadingScreen();
     }
+    });
 });

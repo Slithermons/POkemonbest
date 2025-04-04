@@ -115,6 +115,20 @@ function updateHpUI() {
     }
 }
 
+// Function to update the Experience display (in Stats Modal)
+function updateExperienceUI() {
+    const levelSpan = document.getElementById('stats-level');
+    const experienceSpan = document.getElementById('stats-experience');
+    const expNeededSpan = document.getElementById('stats-exp-needed');
+
+    if (levelSpan) levelSpan.textContent = playerLevel; // From gameWorld.js
+    if (experienceSpan) experienceSpan.textContent = playerExperience; // From gameWorld.js
+    if (expNeededSpan) expNeededSpan.textContent = calculateExpNeeded(playerLevel); // Use function from gameWorld.js
+
+    // No console log here, as it's called frequently during level ups
+}
+
+
 // Function to update the cash display
 function updateCashUI(amount) {
     if (cashAmountElement) {
@@ -554,6 +568,11 @@ function populateShopUI() {
                 <span class="shop-item-price">$${item.price || 'N/A'}</span>
                 <button class="shop-buy-button btn btn-green" data-item-id="${item.id}">Buy</button>
             `;
+            // Ensure price has '$'
+            const priceSpan = listItem.querySelector('.shop-item-price');
+            if (priceSpan && !priceSpan.textContent.startsWith('$')) {
+                priceSpan.textContent = `$${priceSpan.textContent}`;
+            }
             shopBuyListElement.appendChild(listItem);
         });
     }
@@ -588,11 +607,10 @@ function populateShopUI() {
             const listItem = document.createElement('li');
             listItem.dataset.itemId = item.id;
 
-            // Calculate sell price using rarityMultipliers from shop.js
-            // Ensure rarity is a string and formatted correctly for lookup
+            // Calculate sell price using the NEW formula (1 * multiplier)
             const rarityKey = (item.rarity || 'Common').toLowerCase().replace('-', '_');
             const multiplier = rarityMultipliers[rarityKey] || 1; // rarityMultipliers from shop.js
-            const sellPrice = 30 * multiplier;
+            const sellPrice = 1 * multiplier; // Use the updated base price
 
             // Determine display name and rarity color
             let displayName = item.name;
@@ -621,6 +639,11 @@ function populateShopUI() {
                 <span class="shop-item-value">$${sellPrice}</span>
                 <button class="shop-sell-button btn btn-orange" data-item-id="${item.id}">Sell</button>
             `;
+             // Ensure sell value has '$'
+            const valueSpan = listItem.querySelector('.shop-item-value');
+             if (valueSpan && !valueSpan.textContent.startsWith('$')) {
+                valueSpan.textContent = `$${valueSpan.textContent}`;
+            }
             shopSellListElement.appendChild(listItem);
         });
     }
@@ -710,10 +733,12 @@ function handleShopSellClick(event) {
 
         // Update game state based on result
         if (result.success) {
-            currentCash = playerForShop.money; // Update global cash from modified object
-            updateCashUI(currentCash); // Update UI
-            // Inventory was modified directly by removeItemFromInventory
-            populateShopUI(); // Re-populate sell list
+            // *** IMPORTANT FIX: Update the *global* currentCash directly ***
+            currentCash = playerForShop.money;
+            updateCashUI(currentCash); // Update cash UI with the correct global value
+            // Inventory was modified directly by removeItemFromInventory via callback
+
+            populateShopUI(); // Re-populate sell list to reflect changes
             showShopMessage(result.message);
         } else {
             showShopMessage(result.message, true); // Show error message
@@ -816,8 +841,7 @@ function handlePopupOpenForActions(e) {
         interactEnemyButton.onclick = interactHandler;
     }
 }
-// Attach the single popup listener
-map.on('popupopen', handlePopupOpenForActions);
+// map.on('popupopen', handlePopupOpenForActions); // MOVED to initialization.js
 
 
 // --- UI Minimize/Show Logic ---
@@ -1044,5 +1068,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updateCashUI(currentCash); // Show initial cash (0)
     calculateCharacterStats(); // Calculate initial stats including Max HP (from gameWorld.js)
     updateHpUI(); // Show initial HP
+    updateExperienceUI(); // Show initial EXP/Level
 
 }); // Close DOMContentLoaded listener

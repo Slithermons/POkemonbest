@@ -32,6 +32,12 @@ function hideBattleModal() {
     } else {
          console.error("Battle modal element not found in hideBattleModal!");
     }
+    // Restart background music when modal closes
+    if (typeof playBgm === 'function') {
+        playBgm();
+    } else {
+        console.warn("playBgm function not found when hiding battle modal.");
+    }
 }
 
 function addLogEntry(message, type = 'info') {
@@ -181,6 +187,14 @@ function initiateBattle(playerStats, enemyData) {
 
     addLogEntry(`Battle started: ${currentBattle.player.name} vs ${currentBattle.enemy.name}!`, 'info');
     addLogEntry(`${currentBattle.player.name}'s turn...`, 'info'); // Indicate player starts
+
+    // Stop background music
+    if (typeof stopBgm === 'function') {
+        stopBgm();
+    } else {
+        console.warn("stopBgm function not found when initiating battle.");
+    }
+
     showBattleModal();
 }
 
@@ -209,6 +223,10 @@ function playerTurn() {
     }
 
     showShootoutVisual(); // Show visual effect
+    // Play battle sound
+    if (typeof playRandomBattleSound === 'function') {
+        playRandomBattleSound();
+    }
     const damageDealt = calculateDamage(currentBattle.player, currentBattle.enemy);
     currentBattle.enemyCurrentHp -= damageDealt;
     addLogEntry(`${currentBattle.player.name} attacks ${currentBattle.enemy.name} for ${damageDealt} damage.`, 'player');
@@ -228,6 +246,10 @@ function enemyTurn() {
     if (currentBattle.gameOver || currentBattle.isPlayerTurn) return;
 
     showShootoutVisual(); // Show visual effect
+    // Play battle sound
+    if (typeof playRandomBattleSound === 'function') {
+        playRandomBattleSound();
+    }
     const damageDealt = calculateDamage(currentBattle.enemy, currentBattle.player);
     currentBattle.playerCurrentHp -= damageDealt;
     addLogEntry(`${currentBattle.enemy.name} attacks ${currentBattle.player.name} for ${damageDealt} damage.`, 'enemy');
@@ -266,6 +288,12 @@ function attemptFlee() {
             addLogEntry("Successfully fled from battle!", 'result');
             currentBattle.gameOver = true; // End battle state
             // Don't call endBattle() as it implies win/loss
+            // Restart BGM on successful flee before closing modal
+            if (typeof playBgm === 'function') {
+                playBgm();
+            } else {
+                console.warn("playBgm function not found after fleeing.");
+            }
             setTimeout(hideBattleModal, 1500); // Close modal after a delay
         } else {
             // Flee failed
@@ -353,41 +381,60 @@ function endBattle(playerWon) {
             console.error("removeEnemyFromMap function is not available!");
         }
 
-        // --- Grant Loot ---
+        // --- Grant Loot & Experience ---
+        let lootMessage = ""; // String to build for the result message
         if (typeof currentBattle.enemy.getLoot === 'function') {
             const lootDrops = currentBattle.enemy.getLoot(); // Get array of { itemId, quantity }
             if (lootDrops && lootDrops.length > 0) {
-                addLogEntry("Loot obtained:", 'result');
+                addLogEntry("--- Loot Obtained ---", 'result'); // Clearer separator
+                lootMessage += "<br>Loot: ";
+                let lootItems = [];
                 lootDrops.forEach(drop => {
                     if (drop.itemId === 'MONEY') {
                         // Handle money drop
-                        if (typeof currentCash !== 'undefined' && typeof cashAmountElement !== 'undefined') {
+                        if (typeof currentCash !== 'undefined' && typeof updateCashUI === 'function') {
                             currentCash += drop.quantity;
-                            cashAmountElement.textContent = currentCash; // Update UI
+                            updateCashUI(currentCash); // Use the UI update function
                             addLogEntry(`- $${drop.quantity}`, 'result');
+                            lootItems.push(`$${drop.quantity}`);
                             console.log(`Added $${drop.quantity} cash.`);
                         } else {
-                            console.warn("Cannot add money loot: currentCash or cashAmountElement not found.");
+                            console.warn("Cannot add money loot: currentCash or updateCashUI not found.");
                         }
                     } else {
                         // Handle item drop
                         if (typeof addItemToInventory === 'function' && typeof getItemById === 'function') {
                             const itemInfo = getItemById(drop.itemId); // Get item details for logging
                             const itemName = itemInfo ? itemInfo.name : drop.itemId;
-                            addItemToInventory(drop.itemId, drop.quantity); // Add to inventory (function from script.js)
+                            addItemToInventory(drop.itemId, drop.quantity); // Add to inventory (function from gameWorld.js)
                             addLogEntry(`- ${itemName} x${drop.quantity}`, 'result');
+                            lootItems.push(`${itemName} x${drop.quantity}`);
                         } else {
                             console.warn(`Cannot add item loot ${drop.itemId}: addItemToInventory or getItemById function not found.`);
                         }
                     }
                 });
+                lootMessage += lootItems.join(', ');
             } else {
                 addLogEntry("No loot dropped.", 'result');
             }
         } else {
             console.warn("Enemy does not have a getLoot method.");
         }
-        // TODO: Grant experience
+
+        // --- Grant Experience ---
+        let expGained = 0;
+        if (currentBattle.enemy.experienceRate && typeof gainExperience === 'function') {
+            expGained = currentBattle.enemy.experienceRate; // Use the rate defined in enemy.js
+            gainExperience(expGained); // Function from gameWorld.js
+            addLogEntry(`Gained ${expGained} EXP!`, 'result');
+            lootMessage += `<br>EXP: ${expGained}`; // Add EXP to the loot message string
+        } else {
+            console.warn("Cannot grant EXP: Enemy experienceRate or gainExperience function not found.");
+        }
+
+        // Append loot and EXP message to the main victory message
+        message += lootMessage;
 
     } else {
         message = `${currentBattle.player.name} defeated! Game Over?`;
@@ -396,19 +443,20 @@ function endBattle(playerWon) {
         // TODO: Handle player defeat
     }
 
-    // Update global player health state
-    if (typeof playerHealth !== 'undefined') {
-         playerHealth = Math.max(0, currentBattle.playerCurrentHp);
-         console.log(`Player health updated to: ${playerHealth}`);
-         // TODO: Update dashboard health UI
+    // Update global player health state using the correct variable
+    if (typeof playerCurrentHp !== 'undefined' && typeof updateHpUI === 'function') {
+         // Directly update the global variable
+         playerCurrentHp = Math.max(0, currentBattle.playerCurrentHp);
+         console.log(`Player health updated to: ${playerCurrentHp}`);
+         updateHpUI(); // Update the dashboard UI as well
     } else {
-        console.warn("Global playerHealth variable not found to update after battle.");
+        console.warn("Global playerCurrentHp variable or updateHpUI function not found to update after battle.");
     }
 
-    // Show result message and close button
+    // Show result message (now potentially including loot) and close button
     if (battleResultMessage) {
-        battleResultMessage.textContent = message;
-        battleResultMessage.className = '';
+        battleResultMessage.innerHTML = message; // Use innerHTML to render the <br> tag
+        battleResultMessage.className = ''; // Reset class
         battleResultMessage.classList.add(messageClass);
     }
     if (battleResultDiv) battleResultDiv.style.display = 'block';
