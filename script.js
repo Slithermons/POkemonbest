@@ -126,8 +126,11 @@ const weapons = {
 // --- Player State ---
 let playerHealth = 100; // Example player health
 let playerInventory = []; // Array to hold item/weapon objects possessed by the player
+let currentPlayerId = 'player123'; // Example unique player ID
+let currentPlayerPower = 75; // Example player power level
+let playerUsername = ''; // Variable for username
+let playerAlias = ''; // Variable for alias
 // Example: playerInventory = [ { id: 'medkit', quantity: 1 }, { id: 'pistol', ammo: 6 } ];
-
 
 // --- Cash Drop Data and Spawning ---
 const cashDropData = { name: 'Cash Drop', minAmount: 50, maxAmount: 500 };
@@ -147,10 +150,42 @@ let businessLayer = L.layerGroup().addTo(map); // Layer group for businesses
 let businessesCache = {}; // Cache found businesses {id: businessInfo}
 let displayedBusinessIds = new Set(); // Keep track of displayed business IDs
 let currentOrganizationBaseLocation = null; // Store the LatLon of the joined org's base
-const TERRITORY_RADIUS = 2000; // 2km radius for territory control
+const TERRITORY_RADIUS = 2000; // 2km radius for territory control (used for profit collection)
+const PROTECTION_ACTIVATION_RANGE = 2000; // 2km radius for activating protection
+const MAX_PROTECTING_USERS = 10; // Max users per org protecting a business
+let enemyLayer = L.layerGroup().addTo(map); // Layer group for enemies
 const protectionBookElement = document.getElementById('protection-book'); // Get protection book container
 const controlledBusinessesListElement = document.getElementById('controlled-businesses-list'); // Get list element
 const inventoryListElement = document.getElementById('inventory-list'); // Get inventory list element
+const usernameInput = document.getElementById('username-input'); // Get username input
+const aliasInput = document.getElementById('alias-input'); // Get alias input
+const saveUserInfoBtn = document.getElementById('save-user-info-btn'); // Get save button
+
+// --- User Info Management ---
+
+function saveUserInfo() {
+    playerUsername = usernameInput.value.trim();
+    playerAlias = aliasInput.value.trim();
+    localStorage.setItem('playerUsername', playerUsername);
+    localStorage.setItem('playerAlias', playerAlias);
+    alert('User info saved!');
+    // Re-render protection book in case alias changed
+    updateProtectionBookUI();
+}
+
+function loadUserInfo() {
+    const savedUsername = localStorage.getItem('playerUsername');
+    const savedAlias = localStorage.getItem('playerAlias');
+    if (savedUsername) {
+        playerUsername = savedUsername;
+        usernameInput.value = playerUsername;
+    }
+    if (savedAlias) {
+        playerAlias = savedAlias;
+        aliasInput.value = playerAlias;
+    }
+    console.log(`Loaded User Info - Username: ${playerUsername}, Alias: ${playerAlias}`);
+}
 
 // --- Inventory Management ---
 
@@ -560,6 +595,82 @@ function spawnRivals(centerLat, centerLon) {
 
 // --- Business / Protection Money Logic ---
 
+// Function to handle activating protection on a business
+function activateProtection(businessId) {
+    const businessInfo = businessesCache[businessId];
+    if (!businessInfo) {
+        console.error(`Business not found in cache: ${businessId}`);
+        return;
+    }
+
+    if (!currentUserLocation) {
+        alert("Cannot determine your location.");
+        return;
+    }
+    if (!currentUserOrganization) {
+        alert("You must be in an organization to protect a business.");
+        return;
+    }
+
+    // Check 1: Player distance to business
+    const distanceToBusiness = calculateDistance(currentUserLocation.lat, currentUserLocation.lon, businessInfo.lat, businessInfo.lon);
+    if (distanceToBusiness > PROTECTION_ACTIVATION_RANGE) {
+        alert(`You are too far away from ${businessInfo.name} to activate protection. (Need to be within ${PROTECTION_ACTIVATION_RANGE}m, currently ${distanceToBusiness.toFixed(0)}m)`);
+        return;
+    }
+
+    // Check 2: Is the business already protected by *another* organization?
+    if (businessInfo.protectingOrganization && businessInfo.protectingOrganization.abbreviation !== currentUserOrganization.abbreviation) {
+        alert(`${businessInfo.name} is already protected by ${businessInfo.protectingOrganization.name}. Contesting not implemented yet.`);
+        // TODO: Implement contesting logic here later
+        return;
+    }
+
+    // Check 3: Is the current player already protecting this business?
+    const alreadyProtecting = businessInfo.protectingUsers.some(user => user.userId === currentPlayerId);
+    if (alreadyProtecting) {
+        alert(`You are already contributing protection to ${businessInfo.name}.`);
+        return;
+    }
+
+    // Check 4: Is the user limit reached for the *current* organization?
+    if (businessInfo.protectingOrganization && businessInfo.protectingOrganization.abbreviation === currentUserOrganization.abbreviation && businessInfo.protectingUsers.length >= MAX_PROTECTING_USERS) {
+        alert(`${businessInfo.name} already has the maximum number of protectors (${MAX_PROTECTING_USERS}) from your organization.`);
+        return;
+    }
+     // Check 4b: If no org is protecting yet, ensure limit isn't reached (shouldn't happen if length is 0, but safe check)
+     if (!businessInfo.protectingOrganization && businessInfo.protectingUsers.length >= MAX_PROTECTING_USERS) {
+         alert(`${businessInfo.name} already has the maximum number of protectors (${MAX_PROTECTING_USERS}).`); // Generic message
+         return;
+     }
+
+
+    // --- All checks passed, activate/add protection ---
+    console.log(`Activating protection for ${businessInfo.name} by ${currentPlayerId} (Power: ${currentPlayerPower})`);
+
+    // Set protecting organization if it's not already set to the current one
+    if (!businessInfo.protectingOrganization || businessInfo.protectingOrganization.abbreviation !== currentUserOrganization.abbreviation) {
+        businessInfo.protectingOrganization = { ...currentUserOrganization }; // Store a copy
+        // If switching orgs (or first time), clear previous users (shouldn't happen due to check 2, but safe)
+        businessInfo.protectingUsers = [];
+        businessInfo.protectionPower = 0;
+    }
+
+    // Add current player to protectors
+    businessInfo.protectingUsers.push({ userId: currentPlayerId, userPower: currentPlayerPower });
+
+    // Recalculate total protection power for this organization
+    businessInfo.protectionPower = businessInfo.protectingUsers.reduce((sum, user) => sum + user.userPower, 0);
+
+    alert(`You are now helping protect ${businessInfo.name}! Total Protection Power: ${businessInfo.protectionPower}`);
+
+    // Update the marker and protection book immediately
+    updateSingleBusinessMarker(businessId);
+    updateProtectionBookUI(); // Refresh book list
+
+    // TODO: Persist protection changes
+}
+
 // Function to update the Protection Book UI
 function updateProtectionBookUI() {
     if (!currentUserOrganization) {
@@ -570,30 +681,53 @@ function updateProtectionBookUI() {
 
     controlledBusinessesListElement.innerHTML = ''; // Clear existing list
     let controlledCount = 0;
+    let totalProtectionPower = 0; // Track total power of controlled businesses
 
     // Iterate through cached businesses that are currently displayed
     displayedBusinessIds.forEach(id => {
         const businessInfo = businessesCache[id];
-        // Check if the business exists and is marked as controlled
-        if (businessInfo && businessInfo.isControlled) {
+        // Check if the business exists and is controlled *for profit* by the current org
+        if (businessInfo && businessInfo.isControlled) { // isControlled checks territory radius
             controlledCount++;
             const profit = calculatePotentialProfit(businessInfo);
             const listItem = document.createElement('li');
-            listItem.classList.add('controlled-business-item'); // Add class for styling
-            // Display name and current potential profit
-            listItem.innerHTML = `<span class="business-name">${businessInfo.name}</span> <span class="business-profit">$${profit}</span>`;
-            // Optional: Add click listener to pan to business?
-            // listItem.onclick = () => map.panTo([businessInfo.lat, businessInfo.lon]);
+            listItem.classList.add('controlled-business-item');
+
+            let protectionInfo = '(Unprotected)';
+            let protectorAlias = ''; // Variable to hold the alias
+            // Check if it's protected by *this* organization
+            if (businessInfo.protectingOrganization && businessInfo.protectingOrganization.abbreviation === currentUserOrganization.abbreviation) {
+                protectionInfo = `(Power: ${businessInfo.protectionPower})`;
+                totalProtectionPower += businessInfo.protectionPower; // Add to total
+                // If protected by current org, display the saved alias
+                if (playerAlias) {
+                    protectorAlias = ` <span class="protector-alias">(${playerAlias})</span>`;
+                }
+            } else if (businessInfo.protectingOrganization) {
+                 protectionInfo = `(Protected by ${businessInfo.protectingOrganization.abbreviation})`; // Show if protected by others
+            }
+
+
+            // Display name, alias (if applicable), profit, and protection status
+            listItem.innerHTML = `
+                <span class="business-name">${businessInfo.name}${protectorAlias}</span>
+                <span class="business-profit">$${profit}</span>
+                <span class="business-protection">${protectionInfo}</span>
+            `;
             controlledBusinessesListElement.appendChild(listItem);
         }
     });
 
+    // Add a summary line for total protection power?
     if (controlledCount > 0) {
-         protectionBookElement.style.display = 'block'; // Show the book if there are controlled businesses
+        const summaryItem = document.createElement('li');
+        summaryItem.classList.add('protection-summary');
+        summaryItem.innerHTML = `<b>Total Protection Power: ${totalProtectionPower}</b>`;
+        controlledBusinessesListElement.appendChild(summaryItem); // Add to the end
+        protectionBookElement.style.display = 'block'; // Show the book
     } else {
-         // Optionally keep the book visible but show an empty message
          controlledBusinessesListElement.innerHTML = '<li>No businesses currently controlled.</li>';
-         protectionBookElement.style.display = 'block';
+         protectionBookElement.style.display = 'block'; // Keep book visible but show empty message
     }
 }
 
@@ -671,6 +805,7 @@ function processBusinessElements(elements) {
         const potential = tags.shop === 'supermarket' ? 100 : (tags.amenity === 'restaurant' ? 75 : 50);
 
         // Only add to cache if not already present (or update if needed)
+        // Check if business already exists in cache before creating a new entry
         if (!businessesCache[element.id]) {
             const businessInfo = {
                 id: element.id,
@@ -680,13 +815,19 @@ function processBusinessElements(elements) {
                 type: tags.shop || tags.amenity,
                 potential: potential, // Base potential for income
                 lastCollected: 0, // Timestamp of last collection
-                isControlled: false, // Default to not controlled
-                marker: null // Placeholder for marker
+                isControlled: false, // Default to not controlled (for profit)
+                marker: null, // Placeholder for marker
+                // --- Protection Fields ---
+                protectingOrganization: null, // { name: string, abbreviation: string }
+                protectionPower: 0,
+                protectingUsers: [] // Array of { userId: string, userPower: number }
             };
             businessesCache[businessInfo.id] = businessInfo;
-            businesses.push(businessInfo);
+            businesses.push(businessInfo); // Add to the list to be displayed *now*
         } else {
-            // Optionally update existing cache entry if needed, but avoid duplicates in the returned array
+             // If it exists, maybe update potential? For now, just skip adding to the 'businesses' array
+             // to avoid duplicate processing by displayBusinesses.
+             // console.log(`Business ${element.id} already in cache.`);
         }
     });
     return businesses; // Return only newly processed businesses for displayBusinesses
@@ -743,28 +884,60 @@ function displayBusinesses(businesses) {
 
 // Combined handler for popup open to attach button listeners
 function handlePopupOpenForActions(e) {
+    const popupNode = e.popup._contentNode; // Get the container element of the popup
+
     // Handle Collect Button
-    const collectButton = e.popup._contentNode.querySelector('.collect-button');
+    const collectButton = popupNode.querySelector('.collect-button');
     if (collectButton) {
-        collectButton.onclick = function() {
+        // Use a unique handler function to avoid duplicate listeners if popup reopens quickly
+        const collectHandler = function() {
             const businessId = this.getAttribute('data-business-id');
             collectProfit(businessId);
             map.closePopup(); // Close popup after action
-        }
+        };
+        collectButton.onclick = collectHandler; // Assign the handler
     }
+
     // Handle Join Button
-    const joinButton = e.popup._contentNode.querySelector('.join-button');
+    const joinButton = popupNode.querySelector('.join-button');
     if (joinButton) {
-        // Remove previous listener to prevent duplicates if popup reopens quickly
-        joinButton.onclick = null;
-        joinButton.onclick = function() {
+        const joinHandler = function() {
             const orgName = this.getAttribute('data-org-name');
-             const orgAbbr = this.getAttribute('data-org-abbr');
-             const baseLat = parseFloat(this.getAttribute('data-base-lat'));
-             const baseLon = parseFloat(this.getAttribute('data-base-lon'));
-             joinOrganizationManually(orgName, orgAbbr, baseLat, baseLon);
-            map.closePopup(); // Close popup after action
-        }
+            const orgAbbr = this.getAttribute('data-org-abbr');
+            const baseLat = parseFloat(this.getAttribute('data-base-lat'));
+            const baseLon = parseFloat(this.getAttribute('data-base-lon'));
+            joinOrganizationManually(orgName, orgAbbr, baseLat, baseLon);
+            map.closePopup();
+        };
+        joinButton.onclick = joinHandler;
+    }
+
+    // Handle Activate Protection Button
+    const activateButton = popupNode.querySelector('.activate-protection-button');
+    if (activateButton) {
+        const activateHandler = function() {
+            const businessId = this.getAttribute('data-business-id');
+            activateProtection(businessId);
+            // Don't close popup immediately, let activateProtection handle alerts/updates
+            // map.closePopup();
+        };
+        activateButton.onclick = activateHandler;
+    }
+
+    // Handle Interact Enemy Button
+    const interactEnemyButton = popupNode.querySelector('.interact-enemy-button');
+    if (interactEnemyButton) {
+        const interactHandler = function() {
+            const enemyId = this.getAttribute('data-enemy-id');
+            const enemy = findEnemyById(enemyId); // Function from enemy.js
+            if (enemy) {
+                enemy.interact(null); // Pass player object if needed later
+            } else {
+                console.error(`Enemy with ID ${enemyId} not found for interaction.`);
+            }
+            map.closePopup(); // Close popup after interaction attempt
+        };
+        interactEnemyButton.onclick = interactHandler;
     }
 }
 
@@ -789,76 +962,126 @@ function updateBusinessMarkers() {
 }
 
 // Function to update a single business marker's icon and popup
-// Returns true if the control status changed, false otherwise.
+// Returns true if the control status OR protection status changed, false otherwise.
 function updateSingleBusinessMarker(businessId) {
      const businessInfo = businessesCache[businessId];
-     // Ensure businessInfo and its marker exist before proceeding
      if (!businessInfo || !businessInfo.marker) {
-         // console.warn(`Skipping update for business ID ${businessId}: Not found in cache or no marker.`);
-         return false;
+         return false; // No change if marker doesn't exist
      }
 
-     const previousControlStatus = businessInfo.isControlled; // Store old status
-     let currentIcon = defaultBusinessIcon; // Start with default (black)
-     let currentPopupContent = `<b>${businessInfo.name}</b><br>(${businessInfo.type})`;
-     let isNowControlled = false;
+     const previousControlStatus = businessInfo.isControlled;
+     const previousProtectionPower = businessInfo.protectionPower; // Store old power
 
-     // Determine current control status and icon
+     let currentIcon = defaultBusinessIcon;
+     let currentPopupContent = `<b>${businessInfo.name}</b><br>(${businessInfo.type})`;
+     let isNowControlled = false; // For profit collection
+
+     // --- Determine Profit Control Status & Base Icon ---
      if (currentUserOrganization && currentOrganizationBaseLocation) {
-         // Player is in an organization
          const distanceToBase = calculateDistance(
              businessInfo.lat, businessInfo.lon,
              currentOrganizationBaseLocation.lat, currentOrganizationBaseLocation.lon
          );
          if (distanceToBase <= TERRITORY_RADIUS) {
-             // Business is IN territory (Allowed)
-             isNowControlled = true;
-             currentIcon = allowedBusinessIcon; // Green icon
-             const profit = calculatePotentialProfit(businessInfo);
-             currentPopupContent += `<br>Potential Profit: $${profit}<br><button class="collect-button" data-business-id="${businessInfo.id}">Collect Profit</button>`;
+             isNowControlled = true; // Can collect profit
+             currentIcon = allowedBusinessIcon; // Green icon (base for controlled)
          } else {
-             // Business is OUTSIDE territory (Not Allowed)
-             isNowControlled = false; // Ensure it's marked as not controlled
+             isNowControlled = false;
              currentIcon = notAllowedBusinessIcon; // Red icon
-             // Basic popup content (already set above)
          }
      } else {
-         // Player is NOT in an organization
-         isNowControlled = false; // Ensure it's marked as not controlled
+         isNowControlled = false;
          currentIcon = defaultBusinessIcon; // Black icon
-         // Basic popup content (already set above)
      }
 
-     // Check if the control status actually changed
-     const statusChanged = previousControlStatus !== isNowControlled;
+     // --- Add Protection Info & Button ---
+     if (businessInfo.protectingOrganization) {
+         currentPopupContent += `<br><hr>Protected by: ${businessInfo.protectingOrganization.name} (${businessInfo.protectingOrganization.abbreviation})`;
+         currentPopupContent += `<br>Protection Power: ${businessInfo.protectionPower}`;
+         currentPopupContent += `<br>Protectors: ${businessInfo.protectingUsers.length}/${MAX_PROTECTING_USERS}`;
+     } else {
+         currentPopupContent += `<br><hr>Status: Unprotected`;
+     }
 
-     // Update the cache with the new control status
+     // --- Add "Activate Protection" Button Logic ---
+     let canActivate = false;
+     if (currentUserOrganization && currentUserLocation) {
+         const distanceToBusiness = calculateDistance(currentUserLocation.lat, currentUserLocation.lon, businessInfo.lat, businessInfo.lon);
+         const isAlreadyProtecting = businessInfo.protectingUsers.some(user => user.userId === currentPlayerId);
+
+         // Conditions to show the button:
+         if (distanceToBusiness <= PROTECTION_ACTIVATION_RANGE && // Player in range of business
+             !isAlreadyProtecting && // Player not already protecting
+             (!businessInfo.protectingOrganization || // EITHER unprotected
+              (businessInfo.protectingOrganization.abbreviation === currentUserOrganization.abbreviation && // OR protected by player's org
+               businessInfo.protectingUsers.length < MAX_PROTECTING_USERS)) // AND user limit not reached
+            )
+         {
+             canActivate = true;
+         }
+     }
+
+     if (canActivate) {
+         currentPopupContent += `<br><button class="activate-protection-button" data-business-id="${businessInfo.id}">Activate Protection</button>`;
+     }
+
+     // --- Add "Collect Profit" Button Logic (only if controlled for profit) ---
+     if (isNowControlled) {
+         const profit = calculatePotentialProfit(businessInfo);
+         currentPopupContent += `<br><hr>Potential Profit: $${profit}`; // Add separator
+         // Only show collect button if there's profit OR it was just controlled (profit might be 0)
+         if (profit > 0 || (previousControlStatus !== isNowControlled)) {
+             currentPopupContent += `<br><button class="collect-button" data-business-id="${businessInfo.id}">Collect Profit</button>`;
+         }
+     }
+
+
+     // --- Check if anything significant changed ---
+     const profitControlStatusChanged = previousControlStatus !== isNowControlled;
+     const protectionStatusChanged = previousProtectionPower !== businessInfo.protectionPower || // Power changed
+                                    (!businessInfo.protectingOrganization && previousProtectionPower > 0) || // Went from protected to unprotected
+                                    (businessInfo.protectingOrganization && previousProtectionPower === 0); // Went from unprotected to protected
+
+     // Update cache and marker state
      businessInfo.isControlled = isNowControlled;
 
-     // If the business just became controlled, reset its collection time to start profit now
-     if (statusChanged && isNowControlled) {
-         businessInfo.lastCollected = Date.now(); // Reset collection time
-         console.log(`Business ${businessInfo.id} (${businessInfo.name}) is now controlled. Resetting lastCollected.`);
-         // Re-calculate profit (should be 0) and update popup content immediately
-         const profit = calculatePotentialProfit(businessInfo);
-         currentPopupContent = `<b>${businessInfo.name}</b><br>(${businessInfo.type})<br>Potential Profit: $${profit}<br><button class="collect-button" data-business-id="${businessInfo.id}">Collect Profit</button>`;
-     } else if (statusChanged && !isNowControlled) {
-         // Business is no longer controlled, remove profit info from popup
-         console.log(`Business ${businessInfo.id} (${businessInfo.name}) is no longer controlled.`);
-         // Popup content is already reset to default above if not controlled
+     // Reset collection time if profit control just started
+     if (profitControlStatusChanged && isNowControlled) {
+         businessInfo.lastCollected = Date.now();
+         console.log(`Business ${businessInfo.id} (${businessInfo.name}) profit control started. Resetting lastCollected.`);
+         // Re-calculate profit (should be 0) and update popup content immediately if needed
+         // (The logic above already adds the collect button based on isNowControlled)
+     } else if (profitControlStatusChanged && !isNowControlled) {
+         console.log(`Business ${businessInfo.id} (${businessInfo.name}) profit control stopped.`);
      }
 
-
-     // Update marker icon
+     // Update marker icon (based on profit control status)
      businessInfo.marker.setIcon(currentIcon);
 
+     // Update popup content
      // Only update popup if content differs to avoid unnecessary redraws/flicker
      if (businessInfo.marker.getPopup().getContent() !== currentPopupContent) {
         businessInfo.marker.setPopupContent(currentPopupContent);
      }
 
+     // --- Add/Remove CSS class for blue styling ---
+     const markerElement = businessInfo.marker.getElement();
+     if (markerElement) {
+         const isProtectedByPlayerOrg = businessInfo.protectingOrganization &&
+                                        currentUserOrganization &&
+                                        businessInfo.protectingOrganization.abbreviation === currentUserOrganization.abbreviation;
 
-     return statusChanged; // Return whether the control status changed
+         if (isProtectedByPlayerOrg) {
+             markerElement.classList.add('protected-by-player-org');
+         } else {
+             markerElement.classList.remove('protected-by-player-org');
+         }
+     }
+     // --- End CSS class modification ---
+
+
+     // Return true if either profit control or protection status changed
+     return profitControlStatusChanged || protectionStatusChanged;
 }
 
 
@@ -901,10 +1124,10 @@ function collectProfit(businessId) {
      if (!currentUserOrganization || !businessInfo.isControlled) {
          alert("This business is not under your organization's control.");
          return;
-     }
+    }
 
     const distanceToBusiness = calculateDistance(currentUserLocation.lat, currentUserLocation.lon, businessInfo.lat, businessInfo.lon);
-    const PROFIT_COLLECTION_DISTANCE = 100; // Can collect from 100m away
+    const PROFIT_COLLECTION_DISTANCE = 2000; // Can collect from 2km away (Testing)
 
     if (distanceToBusiness <= PROFIT_COLLECTION_DISTANCE) {
         const profit = calculatePotentialProfit(businessInfo);
@@ -947,79 +1170,111 @@ function leaveOrganization() { // Renamed function
 // Function to perform initial setup (fetch location, spawn items, find org, fetch initial businesses)
 async function initializeGame() {
     console.log("Initializing game...");
-    let initialLat, initialLon;
+    let initialLat = 51.505; // Default lat
+    let initialLon = -0.09;  // Default lon
+    let locationPermissionGranted = false; // Flag to track permission
 
-    // --- Location Fetching ---
-    const locationPromise = new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-            reject(new Error("Geolocation not supported"));
-            return;
+    // --- Location Fetching with Permissions Check ---
+    if (navigator.geolocation && navigator.permissions) {
+        try {
+            const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
+            console.log("Geolocation permission status:", permissionStatus.state);
+
+            if (permissionStatus.state === 'granted') {
+                locationPermissionGranted = true;
+                // Permission already granted, proceed to get location
+            } else if (permissionStatus.state === 'prompt') {
+                // Permission needs to be asked, getCurrentPosition will trigger the prompt
+                locationPermissionGranted = true; // Assume it might be granted
+            } else if (permissionStatus.state === 'denied') {
+                // Permission denied, inform user and use default
+                alert("Location access was denied. Please enable it in your browser settings to use your current location. Using default location.");
+                locationPermissionGranted = false;
+            }
+
+            // Listen for changes in permission status
+            permissionStatus.onchange = () => {
+                console.log("Geolocation permission status changed to:", permissionStatus.state);
+                // Potentially reload or update UI if permission changes mid-session
+                locationPermissionGranted = (permissionStatus.state === 'granted');
+                // If permission is granted later, maybe re-initialize location?
+                // For now, just update the flag. WatchPosition might start working.
+            };
+
+        } catch (error) {
+            console.error("Error checking geolocation permission:", error);
+            // Fallback to trying to get location anyway, or use default
+            locationPermissionGranted = false; // Assume no permission if query fails
         }
-        console.log("Attempting to get current position...");
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 15000, // Increased timeout for initial fix
-            maximumAge: 0
-        });
+
+        // Attempt to get location only if permission is not explicitly denied
+        if (locationPermissionGranted) {
+            const locationPromise = new Promise((resolve, reject) => {
+                console.log("Attempting to get current position...");
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    enableHighAccuracy: true,
+                    timeout: 15000, // Increased timeout for initial fix
+                    maximumAge: 0
+                });
+            });
+
+            try {
+                const position = await locationPromise;
+                initialLat = position.coords.latitude;
+                initialLon = position.coords.longitude;
+                currentUserLocation = { lat: initialLat, lon: initialLon };
+                console.log("Geolocation successful:", currentUserLocation);
+                map.setView([initialLat, initialLon], 16); // Zoom in closer
+
+            } catch (error) {
+                console.warn("Geolocation failed or timed out. Using default location.", error.message);
+                // Keep default lat/lon
+                currentUserLocation = { lat: initialLat, lon: initialLon };
+                map.setView([initialLat, initialLon], 13); // Wider view for default
+                locationPermissionGranted = false; // Mark as failed for watchPosition check
+            }
+        } else {
+             // Use default location if permission was denied or query failed
+             console.log("Using default location due to permission status.");
+             currentUserLocation = { lat: initialLat, lon: initialLon };
+             map.setView([initialLat, initialLon], 13);
+        }
+
+    } else {
+        console.warn("Geolocation or Permissions API not supported. Using default location.");
+        // Use default location
+        currentUserLocation = { lat: initialLat, lon: initialLon };
+        map.setView([initialLat, initialLon], 13);
+        locationPermissionGranted = false;
+    }
+
+    // --- Create or Update Player Marker ---
+    const playerIcon = L.divIcon({
+        html: '<div class="player-sprite walk-down"></div>',
+        className: 'player-marker',
+        iconSize: [64, 64],
+        iconAnchor: [32, 32]
     });
 
-    try {
-        const position = await locationPromise;
-        initialLat = position.coords.latitude;
-        initialLon = position.coords.longitude;
-        currentUserLocation = { lat: initialLat, lon: initialLon };
-        console.log("Geolocation successful:", currentUserLocation);
-        map.setView([initialLat, initialLon], 16); // Zoom in closer for actual location
+    const popupText = locationPermissionGranted && currentUserLocation.lat !== 51.505 ? 'You are here!' : 'Default location.';
 
-        // Create animated player marker using DivIcon
-        const playerIcon = L.divIcon({
-            html: '<div class="player-sprite walk-down"></div>', // Default to walking down
-            className: 'player-marker', // Class for the marker container itself (optional styling)
-            iconSize: [64, 64], // Size of one frame (updated)
-            iconAnchor: [32, 32] // Anchor point (center) (updated)
-        });
-
-        if (!userMarker) {
-            userMarker = L.marker([initialLat, initialLon], { icon: playerIcon }).addTo(map).bindPopup('You are here!');
-        } else {
-            // If marker exists, just update position (icon is already set)
-            userMarker.setLatLng([initialLat, initialLon]);
+    if (!userMarker) {
+        userMarker = L.marker([initialLat, initialLon], { icon: playerIcon }).addTo(map).bindPopup(popupText);
+    } else {
+        userMarker.setLatLng([initialLat, initialLon]).setPopupContent(popupText);
+        // Ensure icon is correct
+        if (userMarker.getIcon() !== playerIcon) {
+            userMarker.setIcon(playerIcon);
         }
-        userMarker.openPopup();
-
-    } catch (error) {
-        console.warn("Geolocation failed or timed out. Using default location.", error.message);
-        initialLat = 51.505; // Default lat
-        initialLon = -0.09;  // Default lon
-        currentUserLocation = { lat: initialLat, lon: initialLon }; // Set default location
-        map.setView([initialLat, initialLon], 13); // Wider view for default
-
-        // Create animated player marker using DivIcon (same as above for consistency)
-        const playerIcon = L.divIcon({
-            html: '<div class="player-sprite walk-down"></div>', // Default to walking down
-            className: 'player-marker',
-            iconSize: [64, 64], // Size of one frame (updated)
-            iconAnchor: [32, 32] // Anchor point (center) (updated)
-        });
-
-        if (!userMarker) {
-            userMarker = L.marker([initialLat, initialLon], { icon: playerIcon }).addTo(map).bindPopup('Default location.');
-            userMarker.openPopup();
-        } else {
-             // If marker exists, just update position and popup
-             userMarker.setLatLng([initialLat, initialLon]).setPopupContent('Default location.');
-             // Ensure icon is correct if it somehow got changed (though it shouldn't)
-             if (userMarker.getIcon() !== playerIcon) {
-                 userMarker.setIcon(playerIcon);
-             }
-        }
-        // No need to reject the outer promise here, we handled the error by setting defaults
-    } finally {
-        // --- Signal that location attempt is done ---
-        console.log("Initial location attempt finished.");
-        isInitialLocationDone = true;
-        checkAndHideLoadingScreen(); // Check if we can hide the screen now
     }
+    userMarker.openPopup();
+
+
+    // --- Signal that location attempt is done ---
+    console.log("Initial location attempt finished.");
+    isInitialLocationDone = true;
+    checkAndHideLoadingScreen(); // Check if we can hide the screen now
+
 
     // --- Continue with other setup tasks AFTER location is determined ---
     console.log("Spawning initial items...");
@@ -1037,9 +1292,15 @@ async function initializeGame() {
     console.log("Running initial business marker update...");
     updateBusinessMarkers(); // Update icons/popups and Protection Book
 
+    console.log("Spawning enemies...");
+    const enemySpawnRadiusDegrees = 0.008; // Approx 800m radius in degrees (adjust as needed)
+    const numberOfEnemies = 10; // Number of enemies to spawn
+    spawnEnemies(numberOfEnemies, initialLat, initialLon, enemySpawnRadiusDegrees, enemyLayer); // Call the function from enemy.js
+    startEnemyMovement(3000); // Start enemy movement (e.g., every 3 seconds)
+
     console.log("Setting up position watching...");
-    // Start watching for position changes (if geolocation available)
-    if (navigator.geolocation && navigator.geolocation.watchPosition) {
+    // Start watching for position changes only if permission was granted
+    if (locationPermissionGranted && navigator.geolocation && navigator.geolocation.watchPosition) {
         let lastPos = null; // Store the last position to calculate movement vector
 
         navigator.geolocation.watchPosition(
@@ -1110,11 +1371,19 @@ async function initializeGame() {
 }
 
 // Initial UI update (shows 'None' initially before async operations)
+loadUserInfo(); // Load username/alias first
 updateOrganizationUI();
 updateInventoryUI(); // Initial inventory UI update
 
 // Attach listener to leave button
 leaveOrganizationButton.addEventListener('click', leaveOrganization);
+
+// Attach listener to save user info button
+if (saveUserInfoBtn) {
+    saveUserInfoBtn.addEventListener('click', saveUserInfo);
+} else {
+    console.error("Save User Info button not found!");
+}
 
 // 2. Start the game initialization process (which includes location fetching)
 // initializeGame is now async and will set isInitialLocationDone when location attempt finishes

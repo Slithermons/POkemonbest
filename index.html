@@ -17,7 +17,7 @@
         </div>
     </div>
     <div id="mobile-container"> <!-- Start Mobile Container -->
-        <button id="show-dashboard-btn" class="show-ui-btn" title="Show Player Info">ℹ️</button> <!-- Show Dashboard Button -->
+        <button id="show-dashboard-btn" class="show-ui-btn" title="Show User Dashboard">👤</button> <!-- Show Dashboard Button -->
         <div id="map">
             <!-- Map Control Buttons -->
             <div class="map-controls">
@@ -27,9 +27,20 @@
             </div>
         </div>
         <div id="dashboard">
-            <button class="minimize-btn" title="Minimize Player Info">_</button> <!-- Minimize Dashboard Button -->
+            <button class="minimize-btn" title="Minimize User Dashboard">_</button> <!-- Minimize Dashboard Button -->
             <div class="dashboard-header">
-                 <h2>Player Info</h2> <!-- Changed title -->
+                 <h2>USER DASHBOARD</h2> <!-- Changed title -->
+            </div>
+            <div class="dashboard-section">
+                <label for="username-input">Username:</label>
+                <input type="text" id="username-input" placeholder="Enter username">
+            </div>
+            <div class="dashboard-section">
+                <label for="alias-input">Alias:</label>
+                <input type="text" id="alias-input" placeholder="Enter alias">
+            </div>
+            <div class="dashboard-actions">
+                <button id="save-user-info-btn">Save Info</button>
             </div>
             <div class="dashboard-section">
             <span class="label">Cash:</span>
@@ -69,5 +80,6 @@
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
     <script src="script.js"></script>
+    <script src="enemy.js"></script> <!-- Include the enemy script -->
 </body>
 </html>

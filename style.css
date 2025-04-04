@@ -336,6 +336,17 @@ body {
     filter: invert(85%) brightness(1.1); /* Invert to light grey and slightly brighten */
 }
 
+/* Style for business markers protected by the player's organization */
+.leaflet-marker-icon.protected-by-player-org {
+    /* Attempt to make the icon blue using filters. Adjust values as needed. */
+    /* This assumes the base icon is somewhat grayscale or can be colorized */
+    filter: invert(85%) brightness(1.1) sepia(100%) hue-rotate(180deg) saturate(300%);
+    /* Example alternative if the above is too strong/weak:
+    filter: brightness(0.9) sepia(1) hue-rotate(170deg) saturate(5);
+    */
+}
+
+
 /* Player Sprite Animation */
 .player-marker .player-sprite { /* Target the inner div */
     width: 64px;  /* Frame width */
@@ -389,4 +400,25 @@ body {
 
 #center-map-btn {
     font-size: 1.4em; /* Make target icon slightly larger */
+}
+
+/* --- Enemy Styles --- */
+
+/* Style for the enemy marker icon itself */
+.enemy-marker {
+    /* Inherits map-icon-darktheme filter by default */
+    /* Add specific adjustments if needed */
+    /* Example: slightly different brightness or saturation */
+    /* filter: invert(85%) brightness(1.2) saturate(0.8); */
+}
+
+/* Style for the interact button inside the enemy popup */
+.leaflet-popup-content .interact-enemy-button {
+    background-color: #ff9800; /* Orange for interaction */
+    color: white;
+    /* Inherits general popup button styles */
+}
+
+.leaflet-popup-content .interact-enemy-button:hover {
+    background-color: #f57c00; /* Darker orange */
 }
