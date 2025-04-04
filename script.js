@@ -1,25 +1,58 @@
 // --- Loading Screen Logic ---
 const startTime = performance.now(); // Record start time
+const minimumLoadTime = 5000; // 5 seconds in milliseconds
+const loadingScreen = document.getElementById('loading-screen');
+const loadingBar = document.getElementById('loading-bar');
+let loadingInterval = null; // To store the interval ID
+
+if (loadingBar) {
+    // Start simulating progress
+    loadingInterval = setInterval(() => {
+        const elapsedTime = performance.now() - startTime;
+        const progress = Math.min(100, (elapsedTime / minimumLoadTime) * 100);
+        loadingBar.style.width = progress + '%';
+
+        if (progress >= 100) {
+            clearInterval(loadingInterval); // Stop the interval when 100% is reached
+            loadingInterval = null;
+        }
+    }, 50); // Update progress roughly 20 times per second
+} else {
+    console.error("Loading bar element not found!");
+}
+
 
 window.addEventListener('load', () => {
-    const loadingScreen = document.getElementById('loading-screen');
-    if (loadingScreen) {
+    if (loadingScreen && loadingBar) {
+        // Ensure bar is 100% when load event fires
+        loadingBar.style.width = '100%';
+        if (loadingInterval) {
+             clearInterval(loadingInterval); // Clear interval if it's still running
+             loadingInterval = null;
+        }
+
         const elapsedTime = performance.now() - startTime;
-        const minimumLoadTime = 5000; // 5 seconds in milliseconds
         const remainingTime = minimumLoadTime - elapsedTime;
+
+        const hideLoadingScreen = () => {
+            loadingScreen.style.display = 'none';
+            console.log("Loading screen hidden.");
+            if (loadingInterval) { // Double check interval clearance
+                clearInterval(loadingInterval);
+                loadingInterval = null;
+            }
+        };
 
         if (remainingTime > 0) {
             console.log(`Assets loaded in ${elapsedTime.toFixed(0)}ms. Waiting an additional ${remainingTime.toFixed(0)}ms.`);
-            setTimeout(() => {
-                loadingScreen.style.display = 'none';
-                console.log("Loading screen hidden after minimum duration.");
-            }, remainingTime);
+            setTimeout(hideLoadingScreen, remainingTime);
         } else {
-            loadingScreen.style.display = 'none';
+            hideLoadingScreen();
             console.log(`Assets loaded in ${elapsedTime.toFixed(0)}ms (>= ${minimumLoadTime}ms). Loading screen hidden immediately.`);
         }
     } else {
-        console.error("Loading screen element not found!");
+        if (!loadingScreen) console.error("Loading screen element not found!");
+        if (!loadingBar && loadingScreen) console.error("Loading bar element not found!"); // Check specifically for bar if screen exists
     }
 });
 
