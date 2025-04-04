@@ -1,0 +1,431 @@
+// battle.js - Handles battle simulation logic within a modal
+
+// --- Battle State Variables ---
+let currentBattle = {
+    player: null,
+    enemy: null,
+    playerCurrentHp: 0,
+    enemyCurrentHp: 0,
+    isPlayerTurn: true,
+    gameOver: false,
+    isAutoAttackActive: false, // Added for auto-attack
+    autoAttackTimeoutId: null // Added for auto-attack delay management
+};
+
+// --- Utility Functions ---
+
+function showBattleModal() {
+    const battleModal = document.getElementById('battle-modal');
+    if (battleModal) {
+        battleModal.classList.remove('modal-hidden');
+    } else {
+        console.error("Battle modal element not found in showBattleModal!");
+    }
+}
+
+function hideBattleModal() {
+    const battleModal = document.getElementById('battle-modal');
+    // Stop auto-attack if modal is closed manually
+    stopAutoAttack();
+    if (battleModal) {
+        battleModal.classList.add('modal-hidden');
+    } else {
+         console.error("Battle modal element not found in hideBattleModal!");
+    }
+}
+
+function addLogEntry(message, type = 'info') {
+    const battleLogDiv = document.getElementById('battle-log');
+    if (!battleLogDiv) {
+        // Don't log an error here as it might spam during initialization
+        // console.error("Battle log element not found!");
+        return;
+    }
+    const entry = document.createElement('p');
+    entry.classList.add('log-entry');
+    // Add specific class based on type for styling
+    if (type === 'player') entry.classList.add('player-action');
+    else if (type === 'enemy') entry.classList.add('enemy-action');
+    else if (type === 'result') entry.classList.add('result-message');
+    else if (type === 'flee') entry.classList.add('info-message'); // Style flee attempts
+    else entry.classList.add('info-message'); // Default info
+
+    entry.textContent = message;
+    // Find the title paragraph to insert after it
+    const titleElement = battleLogDiv.querySelector('p');
+    if (titleElement && titleElement.nextSibling) {
+        battleLogDiv.insertBefore(entry, titleElement.nextSibling); // Insert after title
+    } else {
+        battleLogDiv.appendChild(entry); // Fallback append
+    }
+    // Scroll to the bottom of the log
+    battleLogDiv.scrollTop = battleLogDiv.scrollHeight;
+}
+
+function updateHealthUI() {
+    if (!currentBattle.player || !currentBattle.enemy) return;
+
+    // Get elements needed for this update
+    const battlePlayerHp = document.getElementById('battle-player-hp');
+    const battlePlayerHealthBar = document.getElementById('battle-player-health-bar');
+    const battleEnemyHp = document.getElementById('battle-enemy-hp');
+    const battleEnemyHealthBar = document.getElementById('battle-enemy-health-bar');
+
+    // Player HP
+    const playerHpPercent = Math.max(0, (currentBattle.playerCurrentHp / currentBattle.player.health) * 100);
+    if (battlePlayerHp) battlePlayerHp.textContent = Math.max(0, Math.round(currentBattle.playerCurrentHp)); // Round HP
+    if (battlePlayerHealthBar) battlePlayerHealthBar.style.width = `${playerHpPercent}%`;
+
+    // Enemy HP
+    const enemyHpPercent = Math.max(0, (currentBattle.enemyCurrentHp / currentBattle.enemy.health) * 100);
+    if (battleEnemyHp) battleEnemyHp.textContent = Math.max(0, Math.round(currentBattle.enemyCurrentHp)); // Round HP
+    if (battleEnemyHealthBar) battleEnemyHealthBar.style.width = `${enemyHpPercent}%`;
+}
+
+function disableActions(disableAll = false) {
+    const battleActionsDiv = document.getElementById('battle-actions');
+    const battleAttackBtn = document.getElementById('battle-attack-btn');
+    const battleAutoAttackBtn = document.getElementById('battle-auto-attack-btn');
+    const battleFleeBtn = document.getElementById('battle-flee-btn');
+
+    if (disableAll && battleActionsDiv) {
+         battleActionsDiv.style.display = 'none'; // Hide all actions (e.g., battle end)
+    } else {
+        // Disable specific buttons during turns/auto-attack
+        if (battleAttackBtn) battleAttackBtn.disabled = true;
+        if (battleFleeBtn) battleFleeBtn.disabled = true;
+        // Keep auto-attack button enabled so it can be toggled off
+        if (battleAutoAttackBtn) battleAutoAttackBtn.disabled = false;
+    }
+}
+
+function enableActions() {
+     const battleActionsDiv = document.getElementById('battle-actions');
+     const battleAttackBtn = document.getElementById('battle-attack-btn');
+     const battleAutoAttackBtn = document.getElementById('battle-auto-attack-btn');
+     const battleFleeBtn = document.getElementById('battle-flee-btn');
+
+     if (battleActionsDiv) {
+        battleActionsDiv.style.display = 'flex'; // Show action buttons
+    }
+     // Enable manual attack only if auto-attack is off
+     if (battleAttackBtn) battleAttackBtn.disabled = currentBattle.isAutoAttackActive;
+     if (battleFleeBtn) battleFleeBtn.disabled = false; // Always enable flee at start of player turn
+     if (battleAutoAttackBtn) battleAutoAttackBtn.disabled = false;
+}
+
+// --- Shootout Visual ---
+function showShootoutVisual() {
+    const visualElement = document.getElementById('shootout-visual');
+    if (visualElement) {
+        visualElement.style.display = 'block';
+        // Remove the element after animation finishes (match CSS duration)
+        setTimeout(() => {
+            visualElement.style.display = 'none';
+        }, 500); // 0.5s animation duration
+    }
+}
+
+// --- Core Battle Logic ---
+
+// Function to initiate a battle (called from script.js)
+function initiateBattle(playerStats, enemyData) {
+    // --- Get Modal Element References ---
+    const battleModal = document.getElementById('battle-modal');
+    const battlePlayerName = document.getElementById('battle-player-name');
+    const battlePlayerHp = document.getElementById('battle-player-hp');
+    const battlePlayerMaxHp = document.getElementById('battle-player-max-hp');
+    const battleEnemyName = document.getElementById('battle-enemy-name');
+    const battleEnemyHp = document.getElementById('battle-enemy-hp');
+    const battleEnemyMaxHp = document.getElementById('battle-enemy-max-hp');
+    const battleLogDiv = document.getElementById('battle-log');
+    const battleResultDiv = document.getElementById('battle-result');
+    const battleAutoAttackBtn = document.getElementById('battle-auto-attack-btn');
+
+    // Check if essential elements exist before proceeding
+    if (!battleModal || !playerStats || !enemyData || !battlePlayerName || !battleEnemyName || !battleLogDiv || !battleResultDiv || !battleAutoAttackBtn) {
+        console.error("Cannot initiate battle: Missing required modal elements, player stats, or enemy data.");
+        return;
+    }
+
+    // Reset battle state
+    currentBattle = {
+        player: { ...playerStats },
+        enemy: { ...enemyData },
+        playerCurrentHp: playerStats.health,
+        enemyCurrentHp: enemyData.health,
+        isPlayerTurn: true,
+        gameOver: false,
+        isAutoAttackActive: false, // Reset auto-attack
+        autoAttackTimeoutId: null
+    };
+
+    // Reset auto-attack button state
+    battleAutoAttackBtn.textContent = "Auto Attack";
+    battleAutoAttackBtn.dataset.active = "false";
+    battleAutoAttackBtn.classList.remove('btn-green');
+    battleAutoAttackBtn.classList.add('btn-blue');
+
+
+    // --- Initialize Modal UI ---
+    battlePlayerName.textContent = currentBattle.player.name;
+    battleEnemyName.textContent = currentBattle.enemy.name;
+    if (battlePlayerMaxHp) battlePlayerMaxHp.textContent = currentBattle.player.health;
+    if (battleEnemyMaxHp) battleEnemyMaxHp.textContent = currentBattle.enemy.health;
+    updateHealthUI();
+    const logTitle = battleLogDiv.querySelector('p');
+    battleLogDiv.innerHTML = '';
+    if (logTitle) battleLogDiv.appendChild(logTitle);
+    battleResultDiv.style.display = 'none';
+    enableActions(); // Enable buttons for the start
+
+    addLogEntry(`Battle started: ${currentBattle.player.name} vs ${currentBattle.enemy.name}!`, 'info');
+    addLogEntry(`${currentBattle.player.name}'s turn...`, 'info'); // Indicate player starts
+    showBattleModal();
+}
+
+// Function to calculate and return damage dealt
+function calculateDamage(attacker, defender) {
+    const attackerAttack = attacker.attack || 5;
+    const defenderDefense = defender.defense || 0;
+    let baseDamage = attackerAttack * 0.5;
+    let damageReduction = defenderDefense * 0.25;
+    let effectiveDamage = Math.max(1, baseDamage - damageReduction);
+    const randomMultiplier = 0.75 + Math.random() * 0.5; // Range: 0.75 to 1.25
+    let finalDamage = Math.round(effectiveDamage * randomMultiplier);
+    finalDamage = Math.max(1, finalDamage);
+    return finalDamage;
+}
+
+// --- Turn Execution ---
+
+function playerTurn() {
+    if (currentBattle.gameOver || !currentBattle.isPlayerTurn) return;
+
+    // Clear any pending auto-attack timeout if player attacked manually
+    if (currentBattle.autoAttackTimeoutId) {
+        clearTimeout(currentBattle.autoAttackTimeoutId);
+        currentBattle.autoAttackTimeoutId = null;
+    }
+
+    showShootoutVisual(); // Show visual effect
+    const damageDealt = calculateDamage(currentBattle.player, currentBattle.enemy);
+    currentBattle.enemyCurrentHp -= damageDealt;
+    addLogEntry(`${currentBattle.player.name} attacks ${currentBattle.enemy.name} for ${damageDealt} damage.`, 'player');
+    updateHealthUI();
+
+    if (currentBattle.enemyCurrentHp <= 0) {
+        endBattle(true); // Player wins
+    } else {
+        currentBattle.isPlayerTurn = false;
+        disableActions(); // Disable player actions during enemy turn
+        addLogEntry(`${currentBattle.enemy.name}'s turn...`, 'info');
+        setTimeout(enemyTurn, 1200); // Enemy attacks after a delay
+    }
+}
+
+function enemyTurn() {
+    if (currentBattle.gameOver || currentBattle.isPlayerTurn) return;
+
+    showShootoutVisual(); // Show visual effect
+    const damageDealt = calculateDamage(currentBattle.enemy, currentBattle.player);
+    currentBattle.playerCurrentHp -= damageDealt;
+    addLogEntry(`${currentBattle.enemy.name} attacks ${currentBattle.player.name} for ${damageDealt} damage.`, 'enemy');
+    updateHealthUI();
+
+    if (currentBattle.playerCurrentHp <= 0) {
+        endBattle(false); // Player loses
+    } else {
+        currentBattle.isPlayerTurn = true;
+        addLogEntry(`${currentBattle.player.name}'s turn...`, 'info');
+
+        // Check for auto-attack
+        if (currentBattle.isAutoAttackActive) {
+            disableActions(); // Keep actions disabled
+            // Schedule next auto-attack
+            currentBattle.autoAttackTimeoutId = setTimeout(playerTurn, 1000); // Auto-attack after 1s
+        } else {
+            enableActions(); // Re-enable player actions for manual turn
+        }
+    }
+}
+
+// --- Flee Action ---
+function attemptFlee() {
+    if (currentBattle.gameOver || !currentBattle.isPlayerTurn) return;
+
+    disableActions(); // Disable actions while attempting to flee
+    stopAutoAttack(); // Stop auto-attack if fleeing
+
+    const fleeChance = 0.5; // 50% chance to flee (adjust as needed)
+    addLogEntry(`${currentBattle.player.name} attempts to flee...`, 'flee');
+
+    setTimeout(() => { // Add a small delay for the attempt message
+        if (Math.random() < fleeChance) {
+            // Flee successful
+            addLogEntry("Successfully fled from battle!", 'result');
+            currentBattle.gameOver = true; // End battle state
+            // Don't call endBattle() as it implies win/loss
+            setTimeout(hideBattleModal, 1500); // Close modal after a delay
+        } else {
+            // Flee failed
+            addLogEntry("Failed to flee!", 'flee');
+            currentBattle.isPlayerTurn = false; // Player loses their turn
+            addLogEntry(`${currentBattle.enemy.name}'s turn...`, 'info');
+            setTimeout(enemyTurn, 1200); // Enemy attacks after flee failure
+        }
+    }, 800); // Delay for flee attempt message
+}
+
+// --- Auto Attack Toggle ---
+function toggleAutoAttack() {
+    if (currentBattle.gameOver) return;
+
+    const autoAttackBtn = document.getElementById('battle-auto-attack-btn');
+    const attackBtn = document.getElementById('battle-attack-btn');
+    currentBattle.isAutoAttackActive = !currentBattle.isAutoAttackActive;
+
+    if (currentBattle.isAutoAttackActive) {
+        autoAttackBtn.textContent = "Auto ON";
+        autoAttackBtn.dataset.active = "true";
+        autoAttackBtn.classList.remove('btn-blue');
+        autoAttackBtn.classList.add('btn-green');
+        if (attackBtn) attackBtn.disabled = true; // Disable manual attack
+
+        // If it's the player's turn, start the auto-attack sequence
+        if (currentBattle.isPlayerTurn) {
+            addLogEntry("Auto-attack enabled.", 'info');
+            disableActions(); // Disable buttons immediately
+             // Clear any existing timeout before starting a new one
+            if (currentBattle.autoAttackTimeoutId) {
+                clearTimeout(currentBattle.autoAttackTimeoutId);
+            }
+            currentBattle.autoAttackTimeoutId = setTimeout(playerTurn, 500); // Start first auto-attack quickly
+        }
+    } else {
+        stopAutoAttack(); // Call the function to handle stopping logic
+    }
+}
+
+function stopAutoAttack() {
+     const autoAttackBtn = document.getElementById('battle-auto-attack-btn');
+     const attackBtn = document.getElementById('battle-attack-btn');
+     currentBattle.isAutoAttackActive = false;
+     if (currentBattle.autoAttackTimeoutId) {
+        clearTimeout(currentBattle.autoAttackTimeoutId);
+        currentBattle.autoAttackTimeoutId = null;
+     }
+     if (autoAttackBtn) {
+        autoAttackBtn.textContent = "Auto Attack";
+        autoAttackBtn.dataset.active = "false";
+        autoAttackBtn.classList.remove('btn-green');
+        autoAttackBtn.classList.add('btn-blue');
+     }
+     // Re-enable manual attack ONLY if it's the player's turn and battle isn't over
+     if (attackBtn && currentBattle.isPlayerTurn && !currentBattle.gameOver) {
+        attackBtn.disabled = false;
+     }
+     addLogEntry("Auto-attack disabled.", 'info');
+}
+
+
+// --- Battle End ---
+
+function endBattle(playerWon) {
+    currentBattle.gameOver = true;
+    stopAutoAttack(); // Ensure auto-attack is stopped
+    disableActions(true); // Disable all actions
+
+    // Get result elements
+    const battleResultDiv = document.getElementById('battle-result');
+    const battleResultMessage = document.getElementById('battle-result-message');
+
+    let message = "";
+    let messageClass = "";
+
+    if (playerWon) {
+        message = `${currentBattle.enemy.name} defeated! You are victorious!`;
+        messageClass = "victory";
+        addLogEntry(message, 'result');
+        if (typeof removeEnemyFromMap === 'function') {
+            removeEnemyFromMap(currentBattle.enemy.id);
+        } else {
+            console.error("removeEnemyFromMap function is not available!");
+        }
+        // TODO: Grant experience, loot, etc.
+    } else {
+        message = `${currentBattle.player.name} defeated! Game Over?`;
+        messageClass = "defeat";
+        addLogEntry(message, 'result');
+        // TODO: Handle player defeat
+    }
+
+    // Update global player health state
+    if (typeof playerHealth !== 'undefined') {
+         playerHealth = Math.max(0, currentBattle.playerCurrentHp);
+         console.log(`Player health updated to: ${playerHealth}`);
+         // TODO: Update dashboard health UI
+    } else {
+        console.warn("Global playerHealth variable not found to update after battle.");
+    }
+
+    // Show result message and close button
+    if (battleResultMessage) {
+        battleResultMessage.textContent = message;
+        battleResultMessage.className = '';
+        battleResultMessage.classList.add(messageClass);
+    }
+    if (battleResultDiv) battleResultDiv.style.display = 'block';
+}
+
+// --- Event Listeners (Attached after DOM is loaded) ---
+
+document.addEventListener('DOMContentLoaded', function() {
+    const battleAttackBtn = document.getElementById('battle-attack-btn');
+    if (battleAttackBtn) {
+        battleAttackBtn.addEventListener('click', () => {
+            if (currentBattle.isPlayerTurn && !currentBattle.gameOver && !currentBattle.isAutoAttackActive) {
+                disableActions();
+                playerTurn();
+            }
+        });
+    } else {
+        console.error("Battle attack button not found after DOM loaded!");
+    }
+
+    const battleAutoAttackBtn = document.getElementById('battle-auto-attack-btn');
+    if (battleAutoAttackBtn) {
+        battleAutoAttackBtn.addEventListener('click', toggleAutoAttack);
+    } else {
+         console.error("Battle auto-attack button not found after DOM loaded!");
+    }
+
+    const battleFleeBtn = document.getElementById('battle-flee-btn');
+    if (battleFleeBtn) {
+        battleFleeBtn.addEventListener('click', () => {
+             if (currentBattle.isPlayerTurn && !currentBattle.gameOver) {
+                attemptFlee();
+            }
+        });
+    } else {
+         console.error("Battle flee button not found after DOM loaded!");
+    }
+
+
+    const battleCloseBtn = document.getElementById('battle-close-btn');
+    if (battleCloseBtn) {
+        battleCloseBtn.addEventListener('click', hideBattleModal);
+    } else {
+        console.error("Battle close button not found after DOM loaded!");
+    }
+});
+
+
+// --- Further Development Ideas ---
+// - Implement different attack types (melee, ranged, special abilities)
+// - Add accuracy/evasion mechanics
+// - Incorporate items/equipment effects
+// - Handle status effects (poison, stun, etc.)
+// - Allow player actions (defend, use item)
+// - Add visual feedback (screen shake, hit effects)
+// - Update player health on the main dashboard after battle.

@@ -1,0 +1,1136 @@
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #1a1a1a; /* Dark background for the 'desktop' area */
+    color: #e0e0e0; /* Default light text color */
+    font-family: sans-serif; /* Basic modern font */
+}
+
+/* Intermediate Width Container Simulation */
+#mobile-container {
+    width: 768px; /* Intermediate width (e.g., tablet portrait) */
+    max-width: calc(100% - 40px); /* Ensure it doesn't exceed viewport width with margins */
+    height: calc(100vh - 40px); /* Fill viewport height minus top/bottom margins */
+    /* max-height: 1024px; Optional max-height */
+    margin: 20px auto; /* Keep horizontal centering and top/bottom margin */
+    position: relative; /* Crucial for positioning absolute children */
+    overflow: hidden; /* Hide anything that might spill out */
+    border: 1px solid #444; /* Darker border */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4); /* Darker shadow */
+    background-color: #2c2c2c; /* Dark background for the 'app' area */
+    display: flex; /* Use flex to help with potential future layout adjustments */
+    flex-direction: column;
+}
+
+
+#loading-screen {
+    /* This should already cover the full viewport, not just the mobile container */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #212121; /* Dark loading background */
+    color: #e0e0e0; /* Light text/elements */
+    display: flex; /* Use flexbox for centering */
+    flex-direction: column; /* Stack image and bar vertically */
+    justify-content: center; /* Keep vertical centering for the image */
+    align-items: center; /* Keep horizontal centering for the image */
+    z-index: 9999; /* Ensure it's on top of everything */
+    /* position: fixed; already establishes a positioning context */
+}
+
+#loading-screen img {
+    max-width: 90%; /* Prevent image from being too large */
+    max-height: 80%; /* Keep image size constraint */
+    /* margin-bottom removed */
+}
+
+#loading-bar-container {
+    position: absolute; /* Position relative to loading-screen */
+    bottom: 15%; /* Position near the bottom */
+    left: 50%; /* Center horizontally */
+    transform: translateX(-50%); /* Fine-tune horizontal centering */
+    width: 40%; /* Reduced width of the loading bar container */
+    max-width: 300px; /* Adjusted max-width accordingly */
+    height: 10px;
+    background-color: #424242; /* Darker bar background */
+    border-radius: 5px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4); /* Darker inset shadow */
+}
+
+#loading-bar {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(to right, #81c784, #4caf50); /* Slightly brighter green gradient */
+    border-radius: 5px; /* Rounded corners */
+    transition: width 0.5s ease-out; /* Smooth transition for width changes */
+}
+
+#map {
+    /* Map should fill the mobile container */
+    height: 100%;
+    width: 100%;
+    /* Map takes remaining space if needed, but height/width 100% is fine */
+    flex-grow: 1;
+}
+
+/* Modernized Dark Mode Dashboard & Protection Book Styles */
+#dashboard, #protection-book {
+    position: absolute;
+    background-color: rgba(50, 50, 50, 0.9); /* Dark background */
+    color: #e0e0e0; /* Light text */
+    padding: 12px;
+    border-radius: 8px;
+    z-index: 1000;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.3); /* Adjusted shadow for dark */
+    /* font-family set on body */
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#dashboard {
+    top: 10px;
+    right: 10px;
+    min-width: 180px; /* Slightly wider */
+}
+
+#protection-book {
+    bottom: 10px;
+    left: 10px;
+    max-width: calc(100% - 20px);
+    max-height: 35%; /* Adjust max-height */
+    overflow-y: auto;
+}
+
+/* Header Styles */
+#dashboard h2, #protection-book h3 {
+    margin-top: 0;
+    font-size: 1.1em; /* Adjust size */
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #555; /* Darker border */
+    color: #f5f5f5; /* Lighter header text */
+}
+
+/* Section Styles */
+.dashboard-section {
+    margin-bottom: 10px; /* More space between sections */
+    display: flex; /* Use flexbox for alignment */
+    justify-content: space-between; /* Space out label and value */
+    align-items: center;
+}
+
+.dashboard-section .label {
+    font-weight: bold;
+    margin-right: 10px;
+    color: #aaa; /* Lighter label */
+}
+
+.dashboard-section .value {
+    text-align: right;
+    color: #fff; /* White value text */
+    font-weight: 500;
+}
+
+/* Inventory Section Styles */
+.inventory-section {
+    align-items: flex-start; /* Align label top */
+    border-top: 1px solid #555; /* Separator */
+    padding-top: 10px;
+    margin-top: 10px;
+}
+.inventory-section .label {
+    margin-bottom: 5px; /* Space below label */
+}
+#inventory-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    width: 100%; /* Take full width */
+    font-size: 0.9em;
+    color: #ccc; /* Lighter text for items */
+}
+#inventory-list li {
+    margin-bottom: 4px;
+    cursor: pointer; /* Indicate items might be clickable */
+    padding: 2px 0;
+}
+#inventory-list li:hover {
+    color: #fff; /* Highlight on hover */
+}
+
+/* --- Base Button Style --- */
+.btn {
+    display: inline-block; /* Changed from block for flexibility */
+    padding: 8px 15px; /* Slightly more padding */
+    border: 1px solid #555; /* Subtle border */
+    border-radius: 4px;
+    background-color: #444; /* Default dark grey */
+    color: #e0e0e0; /* Light text */
+    font-family: sans-serif; /* Consistent font */
+    font-size: 0.9em;
+    font-weight: 500; /* Medium weight */
+    text-align: center;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+    width: auto; /* Allow natural width */
+    margin: 2px; /* Small margin for spacing */
+}
+
+.btn:hover {
+    border-color: #777;
+    filter: brightness(1.15); /* General hover brightness */
+}
+
+.btn:active {
+    transform: scale(0.98); /* Slight press effect */
+    filter: brightness(0.9);
+}
+
+/* Color Modifiers */
+.btn-green { background-color: #4caf50; border-color: #388e3c; }
+.btn-green:hover { background-color: #5cb860; border-color: #4caf50; }
+
+.btn-red { background-color: #c62828; border-color: #b71c1c; }
+.btn-red:hover { background-color: #d32f2f; border-color: #c62828; }
+
+.btn-blue { background-color: #1e88e5; border-color: #1565c0; }
+.btn-blue:hover { background-color: #2196f3; border-color: #1e88e5; }
+
+.btn-purple { background-color: #6a1b9a; border-color: #4a148c; }
+.btn-purple:hover { background-color: #7b1fa2; border-color: #6a1b9a; }
+
+.btn-orange { background-color: #ff9800; border-color: #f57c00; color: #212121; } /* Darker text for orange */
+.btn-orange:hover { background-color: #ffa726; border-color: #ff9800; }
+
+.btn-brown { background-color: #5d4037; border-color: #4e342e; }
+.btn-brown:hover { background-color: #6d4c41; border-color: #5d4037; }
+
+.btn-grey { background-color: #616161; border-color: #424242; } /* Grey button */
+.btn-grey:hover { background-color: #757575; border-color: #616161; }
+
+
+/* --- Applying Base Styles --- */
+
+/* Action Button Styles (Dashboard) */
+.dashboard-actions {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #555;
+}
+.dashboard-actions .btn { /* Target buttons within actions */
+    width: 100%; /* Make dashboard buttons full width */
+    margin-top: 5px;
+    margin-left: 0;
+    margin-right: 0;
+}
+.dashboard-actions.button-row .btn {
+    width: auto; /* Override full width if in button-row */
+    flex: 1; /* Allow buttons to share space */
+}
+.dashboard-actions.button-row .btn + .btn {
+     margin-left: 10px; /* Add space between buttons in a row */
+}
+
+
+/* Remove old specific styles, rely on .btn and modifiers */
+#leave-organization-button { /* Keep ID for JS hook, style via class */ }
+#save-user-info-btn { /* Keep ID for JS hook, style via class */ }
+#open-equipment-btn { /* Keep ID for JS hook, style via class */ }
+#open-inventory-btn { /* Keep ID for JS hook, style via class */ }
+
+
+/* Styling for buttons inside popups */
+.leaflet-popup-content .btn { /* Apply base style to popup buttons */
+    margin-top: 8px;
+    padding: 6px 12px; /* Slightly smaller padding for popups */
+    font-size: 0.9em;
+    width: auto; /* Ensure they aren't full width */
+}
+/* Remove old specific popup button styles */
+.leaflet-popup-content .join-button { }
+.leaflet-popup-content .collect-button { }
+.leaflet-popup-content .activate-protection-button { } /* Style via .btn and color modifier */
+.leaflet-popup-content .interact-enemy-button { }
+
+
+/* Dark mode for popups */
+.leaflet-popup-content-wrapper {
+    background-color: #3a3a3a; /* Dark background for popup */
+    color: #e0e0e0; /* Light text */
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+}
+.leaflet-popup-tip {
+    background-color: #3a3a3a;
+}
+.leaflet-popup-close-button {
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+.leaflet-popup-content .join-button:hover {
+    color: #bbb !important; /* Lighter close button */
+}
+.leaflet-popup-close-button:hover {
+    color: #fff !important;
+}
+
+
+/* Protection Book List Styles */
+#controlled-businesses-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#controlled-businesses-list li {
+    padding: 8px 4px;
+    border-bottom: 1px solid #444; /* Darker separator */
+    font-size: 0.9em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+#controlled-businesses-list li:last-child {
+    border-bottom: none;
+}
+
+#controlled-businesses-list .business-name {
+    font-weight: 500; /* Medium weight */
+    color: #e0e0e0; /* Light text */
+}
+
+#controlled-businesses-list .business-profit {
+    color: #81c784; /* Lighter green for profit */
+    font-weight: bold;
+    margin-left: 10px; /* Add space */
+}
+
+/* Remove specific styling for controlled items, rely on profit color */
+
+
+/* General Minimize/Show Button Styles */
+.minimize-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: #555; /* Darker background */
+    border: 1px solid #666;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    line-height: 1;
+    padding: 3px 6px;
+    font-weight: bold;
+    color: #ccc; /* Light text */
+    z-index: 1001;
+}
+.minimize-btn:hover {
+    background: #666;
+    color: #fff;
+}
+
+.show-ui-btn { /* General class for show buttons */
+    position: absolute;
+    z-index: 1001;
+    padding: 6px 10px;
+    font-size: 1.1em;
+    background-color: rgba(70, 70, 70, 0.9); /* Dark background */
+    color: #e0e0e0; /* Light icon */
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    display: none; /* Hidden by default */
+    line-height: 1;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+.show-ui-btn:hover {
+    background-color: rgba(90, 90, 90, 1);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.4); /* Darker shadow */
+}
+
+/* Specific positions for show buttons */
+#show-dashboard-btn {
+    top: 10px;
+    right: 10px;
+}
+#show-book-btn {
+    bottom: 10px;
+    left: 10px;
+}
+
+
+/* State when UI elements are minimized */
+#dashboard.minimized,
+#protection-book.minimized {
+    /* display: none; is handled by JS now */
+    opacity: 0; /* Fade out */
+    transform: scale(0.95); /* Optional: slight scale down */
+    pointer-events: none; /* Prevent interaction when hidden */
+}
+
+/* --- Stats Modal Specific Styles --- */
+#stats-modal {
+    /* Inherits general modal styles */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 10001;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+#stats-modal.modal-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+#stats-modal .modal-content {
+    background-color: #2c2c2c;
+    padding: 25px; /* More padding */
+    border-radius: 10px;
+    border: 2px solid #555;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+    color: #e0e0e0;
+    width: 85%; /* Wider */
+    max-width: 550px; /* Slightly wider max */
+    max-height: 85vh;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+#stats-modal h2 {
+    margin-top: 0;
+    text-align: center;
+    color: #f5f5f5;
+    border-bottom: 1px solid #555;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    flex-shrink: 0;
+}
+
+#stats-modal .close-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 24px;
+    font-weight: bold;
+    color: #aaa;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+#stats-modal .close-btn:hover {
+    color: #fff;
+}
+
+.stats-modal-content {
+    overflow-y: auto;
+    flex-grow: 1;
+    display: grid; /* Use grid for layout */
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Responsive columns */
+    gap: 20px; /* Space between sections */
+}
+
+.stats-section {
+    background-color: #3a3a3a; /* Slightly lighter background for sections */
+    padding: 15px;
+    border-radius: 5px;
+    border: 1px solid #444;
+}
+
+.stats-section h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #ccc;
+    border-bottom: 1px solid #555;
+    padding-bottom: 5px;
+    font-size: 1.1em;
+}
+
+.stats-section p {
+    margin: 8px 0; /* Space between stat lines */
+    font-size: 0.95em;
+    display: flex;
+    justify-content: space-between; /* Align label and value */
+}
+
+.stats-section p strong {
+    color: #aaa; /* Lighter label color */
+    margin-right: 10px;
+}
+
+.stats-section p span {
+    font-weight: bold;
+    color: #fff; /* White value */
+}
+
+/* --- Equipment Modal Styles --- */
+#equipment-modal {
+    position: fixed; /* Fixed position to overlay everything */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7); /* Dark semi-transparent background */
+    z-index: 10001; /* Above custom alert */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+#equipment-modal.modal-hidden {
+    opacity: 0;
+    pointer-events: none; /* Prevent interaction when hidden */
+}
+
+#equipment-modal .modal-content {
+    background-color: #2c2c2c; /* Dark background like dashboard */
+    padding: 20px;
+    border-radius: 10px;
+    border: 2px solid #555; /* Dark border */
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+    color: #e0e0e0;
+    width: 80%;
+    max-width: 600px; /* Max width for the modal */
+    position: relative; /* For positioning the close button */
+    font-family: 'Georgia', serif; /* Optional: MMORPG feel font */
+}
+
+#equipment-modal h2 {
+    margin-top: 0;
+    text-align: center;
+    color: #f5f5f5;
+    border-bottom: 1px solid #555;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+#equipment-modal .close-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 24px;
+    font-weight: bold;
+    color: #aaa;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+#equipment-modal .close-btn:hover {
+    color: #fff;
+}
+
+.equipment-layout {
+    display: flex;
+    gap: 20px; /* Space between preview and slots */
+}
+
+.character-preview {
+    flex-basis: 40%; /* Adjust size as needed */
+    background-color: #1a1a1a; /* Very dark background */
+    border: 1px solid #444;
+    border-radius: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px; /* Ensure some height */
+    color: #777;
+}
+
+.equipment-slots {
+    flex-basis: 60%; /* Adjust size as needed */
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* 2 columns */
+    gap: 15px; /* Space between slots */
+}
+
+.equipment-slot {
+    background-color: #3a3a3a; /* Slightly lighter dark background */
+    border: 1px solid #555;
+    border-radius: 5px;
+    padding: 10px;
+    text-align: center;
+    min-height: 80px; /* Minimum height for slots */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Pushes label and item apart */
+    align-items: center;
+}
+
+.equipment-slot .slot-label {
+    font-size: 0.8em;
+    color: #aaa;
+    margin-bottom: 5px;
+}
+
+.equipment-slot .slot-item {
+    width: 50px; /* Size of the item box */
+    height: 50px;
+    background-color: #1a1a1a; /* Very dark background for empty item */
+    border: 1px dashed #444; /* Dashed border for empty slot */
+    border-radius: 3px;
+    display: flex; /* For potential item icon centering */
+    justify-content: center;
+    align-items: center;
+    color: #666; /* Text for empty slot */
+    font-size: 0.7em;
+    cursor: pointer; /* Indicate slots are interactive */
+}
+
+.equipment-slot .slot-item:hover {
+    border-color: #777;
+}
+
+/* Style for the equipment button on the dashboard */
+#open-equipment-btn {
+    padding: 8px 12px;
+    background-color: #1e88e5; /* Blue */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    display: block;
+    width: 100%;
+    text-align: center;
+    transition: background-color 0.2s ease;
+    margin-top: 5px; /* Add some space above */
+    flex: 1; /* Allow buttons to share space */
+    margin-left: 5px; /* Space between buttons */
+}
+#open-equipment-btn:first-child,
+#open-inventory-btn:first-child {
+    margin-left: 0; /* No left margin for the first button */
+}
+
+
+#open-equipment-btn:hover {
+    background-color: #1565c0; /* Darker Blue */
+}
+
+/* Style for the inventory button */
+#open-inventory-btn {
+    padding: 8px 12px;
+    background-color: #6a1b9a; /* Purple */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    display: block;
+    width: 100%;
+    text-align: center;
+    transition: background-color 0.2s ease;
+    margin-top: 5px; /* Add some space above */
+    flex: 1; /* Allow buttons to share space */
+    margin-left: 5px; /* Space between buttons */
+}
+
+#open-inventory-btn:hover {
+    background-color: #4a148c; /* Darker Purple */
+}
+
+/* Style for the row containing buttons */
+.button-row {
+    display: flex;
+    gap: 10px; /* Space between buttons in the row */
+    width: 100%;
+}
+.button-row button {
+    margin-top: 0; /* Remove top margin if buttons are in a row */
+}
+
+
+/* --- Inventory Modal Styles --- */
+#inventory-modal {
+    position: fixed; /* Fixed position to overlay everything */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7); /* Dark semi-transparent background */
+    z-index: 10001; /* Same level as equipment modal */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+#inventory-modal.modal-hidden {
+    opacity: 0;
+    pointer-events: none; /* Prevent interaction when hidden */
+}
+
+#inventory-modal .modal-content {
+    background-color: #2c2c2c; /* Dark background like dashboard */
+    padding: 20px;
+    border-radius: 10px;
+    border: 2px solid #555; /* Dark border */
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+    color: #e0e0e0;
+    width: 70%; /* Slightly smaller width? */
+    max-width: 500px; /* Max width for the modal */
+    max-height: 80vh; /* Limit height */
+    position: relative; /* For positioning the close button */
+    display: flex;
+    flex-direction: column;
+}
+
+#inventory-modal h2 {
+    margin-top: 0;
+    text-align: center;
+    color: #f5f5f5;
+    border-bottom: 1px solid #555;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+    flex-shrink: 0; /* Prevent header from shrinking */
+}
+
+#inventory-modal .close-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 24px;
+    font-weight: bold;
+    color: #aaa;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+#inventory-modal .close-btn:hover {
+    color: #fff;
+}
+
+.inventory-modal-content {
+    overflow-y: auto; /* Allow scrolling for the list */
+    flex-grow: 1; /* Allow content to take remaining space */
+}
+
+/* Adjust inventory list style for modal context */
+#inventory-modal #inventory-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    font-size: 1em; /* Slightly larger font in modal */
+    color: #ccc;
+}
+
+#inventory-modal #inventory-list li {
+    margin-bottom: 8px; /* More spacing */
+    cursor: pointer;
+    padding: 8px 10px; /* More padding */
+    border-bottom: 1px solid #444; /* Separator */
+    transition: background-color 0.2s ease;
+}
+#inventory-modal #inventory-list li:last-child {
+    border-bottom: none;
+}
+
+#inventory-modal #inventory-list li:hover {
+    background-color: #3a3a3a; /* Highlight background on hover */
+    color: #fff;
+}
+#inventory-modal #inventory-list li:empty { /* Style for the "(Empty)" placeholder */
+    font-style: italic;
+    color: #777;
+    text-align: center;
+    padding: 20px;
+    border-bottom: none;
+    cursor: default;
+}
+#inventory-modal #inventory-list li:empty:hover {
+    background-color: transparent;
+    color: #777;
+}
+
+
+/* Display the corresponding show button when element is minimized */
+/* JS handles display: block/none now */
+/* #dashboard.minimized + #show-dashboard-btn { display: block; } */
+/* #protection-book.minimized + #show-book-btn { display: block; } */
+
+
+/* Lighten dark icons for dark theme */
+.map-icon-darktheme {
+    filter: invert(85%) brightness(1.1); /* Invert to light grey and slightly brighten */
+}
+
+/* Style for business markers protected by the player's organization */
+.leaflet-marker-icon.protected-by-player-org {
+    /* Attempt to make the icon blue using filters. Adjust values as needed. */
+    /* This assumes the base icon is somewhat grayscale or can be colorized */
+    filter: invert(85%) brightness(1.1) sepia(100%) hue-rotate(180deg) saturate(300%);
+    /* Example alternative if the above is too strong/weak:
+    filter: brightness(0.9) sepia(1) hue-rotate(170deg) saturate(5);
+    */
+}
+
+
+/* Player Sprite Animation */
+.player-marker .player-sprite { /* Target the inner div */
+    width: 64px;  /* Frame width */
+    height: 64px; /* Frame height */
+    background-image: url('img/walk.png'); /* Updated path */
+    background-repeat: no-repeat;
+    /* Animation properties: name duration steps timing iteration */
+    animation: walk-cycle 1s steps(9) infinite; /* steps(9) for 9 frames */
+}
+
+/* Keyframes for horizontal movement across 9 frames */
+@keyframes walk-cycle {
+   from { background-position-x: 0px; }
+     to { background-position-x: -576px; } /* 9 frames * 64px width */
+}
+
+/* Classes to select the row (direction) */
+.player-sprite.walk-up { background-position-y: 0px; } /* 1st row */
+.player-sprite.walk-left { background-position-y: -64px; } /* 2nd row */
+.player-sprite.walk-down { background-position-y: -128px; } /* 3rd row (Default) */
+.player-sprite.walk-right { background-position-y: -192px; } /* 4th row */
+
+
+/* Map Control Buttons */
+.map-controls {
+    position: absolute;
+    bottom: 10px; /* Position near bottom */
+    right: 10px; /* Position near right */
+    z-index: 1000; /* Above map tiles, below popups/UI panels if needed */
+    display: flex;
+    flex-direction: column; /* Stack buttons vertically */
+}
+
+.map-controls button {
+    background-color: rgba(70, 70, 70, 0.85); /* Dark background */
+    color: #e0e0e0; /* Light icon/text */
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin-top: 5px; /* Space between buttons */
+    cursor: pointer;
+    font-size: 1.2em; /* Larger symbols */
+    line-height: 1;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    transition: background-color 0.2s ease;
+}
+
+.map-controls button:hover {
+    background-color: rgba(90, 90, 90, 0.95);
+}
+
+#center-map-btn {
+    font-size: 1.4em; /* Make target icon slightly larger */
+}
+
+/* --- Enemy Styles --- */
+
+/* Enemy marker container (no background needed) */
+.enemy-marker {
+    background: none;
+    border: none;
+}
+
+/* Enemy sprite (inner div) */
+.enemy-marker .enemy-sprite {
+    width: 64px;  /* Frame width */
+    height: 64px; /* Frame height */
+    background-image: url('img/walk.png'); /* Use the same spritesheet */
+    background-repeat: no-repeat;
+    /* Animation properties: name duration steps timing iteration */
+    animation: walk-cycle 1s steps(9) infinite; /* Use same animation */
+    /* Optional: Apply a filter to differentiate enemies, e.g., slightly red tint */
+    /* filter: sepia(0.5) hue-rotate(-20deg) saturate(2); */
+}
+
+/* Direction classes for enemy sprite (same as player) */
+.enemy-sprite.walk-up { background-position-y: 0px; }
+.enemy-sprite.walk-left { background-position-y: -64px; }
+.enemy-sprite.walk-down { background-position-y: -128px; }
+.enemy-sprite.walk-right { background-position-y: -192px; }
+
+
+/* Style for the interact button inside the enemy popup */
+.leaflet-popup-content .interact-enemy-button {
+    background-color: #ff9800; /* Orange for interaction */
+    color: white;
+    /* Inherits general popup button styles */
+}
+
+.leaflet-popup-content .interact-enemy-button:hover {
+    background-color: #f57c00; /* Darker orange */
+}
+
+/* --- Custom Alert Styles --- */
+#custom-alert {
+    position: fixed; /* Position relative to the viewport */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Center the alert */
+    background-color: rgba(30, 30, 30, 0.95); /* Very dark, slightly transparent */
+    color: #e0e0e0; /* Light text */
+    padding: 25px;
+    border: 2px solid #8B4513; /* SaddleBrown border - classic mafia feel */
+    border-radius: 5px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.7); /* Stronger shadow */
+    z-index: 10000; /* Ensure it's above everything */
+    min-width: 250px;
+    max-width: 80%;
+    text-align: center;
+    font-family: 'Georgia', serif; /* A more classic/serif font */
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#custom-alert p {
+    margin: 0 0 20px 0; /* Space below message */
+    font-size: 1.1em;
+    line-height: 1.4;
+}
+
+#custom-alert button {
+    padding: 10px 20px;
+    background-color: #5a3e36; /* Dark brown button */
+    color: #fff;
+    border: 1px solid #3e2723; /* Darker border */
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: bold;
+    transition: background-color 0.2s ease;
+}
+
+#custom-alert button:hover {
+    background-color: #3e2723; /* Darker brown on hover */
+}
+
+/* Class to hide the alert */
+.custom-alert-hidden {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9); /* Scale down when hidden */
+    pointer-events: none; /* Prevent interaction when hidden */
+}
+
+/* Fade out effect for removed markers */
+.marker-fade-out {
+    transition: opacity 0.5s ease-out !important; /* Ensure transition applies */
+    opacity: 0 !important; /* Force opacity to 0 */
+}
+
+/* --- Battle Modal Styles --- */
+#battle-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8); /* Darker overlay */
+    z-index: 10002; /* Above other modals */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 1;
+    transition: opacity 0.4s ease;
+}
+
+#battle-modal.modal-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.battle-modal-content {
+    background-color: #212121; /* Very dark background */
+    padding: 20px;
+    border-radius: 8px;
+    border: 2px solid #777; /* Grey border */
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.6);
+    color: #e0e0e0;
+    width: 90%;
+    max-width: 700px; /* Wider modal for battle */
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.battle-modal-content h2 {
+    margin-top: 0;
+    text-align: center;
+    color: #f44336; /* Red title */
+    border-bottom: 1px solid #555;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    font-family: 'Georgia', serif;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.battle-interface {
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-start; /* Align tops */
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px dashed #555;
+}
+
+.battle-participant {
+    flex-basis: 40%; /* Adjust as needed */
+    text-align: center;
+}
+
+.battle-participant h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #ccc;
+}
+
+.battle-participant p {
+    margin: 5px 0;
+    font-size: 0.9em;
+}
+
+.battle-vs {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #f44336; /* Red VS */
+    align-self: center; /* Center vertically */
+    padding: 0 15px;
+}
+
+.health-bar-container {
+    width: 100%;
+    height: 15px;
+    background-color: #444;
+    border-radius: 7px;
+    overflow: hidden;
+    margin-bottom: 5px;
+    border: 1px solid #666;
+}
+
+.health-bar {
+    height: 100%;
+    width: 100%; /* Start full */
+    background: linear-gradient(to right, #4caf50, #81c784); /* Green gradient */
+    border-radius: 7px;
+    transition: width 0.3s ease-in-out;
+}
+
+/* Adjust enemy health bar color */
+.enemy-area .health-bar {
+     background: linear-gradient(to right, #c62828, #ef5350); /* Red gradient */
+}
+
+.battle-actions {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.battle-actions .btn {
+    min-width: 100px; /* Ensure buttons have some width */
+}
+
+.battle-log {
+    background-color: #1a1a1a;
+    border: 1px solid #444;
+    border-radius: 5px;
+    padding: 10px;
+    height: 120px; /* Fixed height */
+    overflow-y: auto; /* Enable scrolling */
+    margin-bottom: 15px;
+    font-size: 0.85em;
+    line-height: 1.4;
+    color: #bbb;
+}
+
+.battle-log p:first-child { /* Style the "Battle Log:" title */
+    margin-top: 0;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #ddd;
+    border-bottom: 1px solid #333;
+    padding-bottom: 4px;
+}
+
+.battle-log .log-entry {
+    margin-bottom: 4px;
+    padding-bottom: 4px;
+    border-bottom: 1px dotted #333;
+}
+.battle-log .log-entry:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.battle-log .player-action { color: #81c784; } /* Green for player actions */
+.battle-log .enemy-action { color: #ef5350; } /* Red for enemy actions */
+.battle-log .info-message { color: #64b5f6; } /* Blue for info */
+.battle-log .result-message { font-weight: bold; color: #ffeb3b; } /* Yellow for results */
+
+
+.battle-result {
+    text-align: center;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #555;
+}
+
+.battle-result p {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+
+.battle-result .victory { color: #4caf50; } /* Green */
+.battle-result .defeat { color: #c62828; } /* Red */
+
+#battle-close-btn {
+    /* Uses .btn and .btn-brown */
+}
+
+/* Shootout Visual Style */
+.shootout-visual {
+    position: absolute; /* Position over the battle interface */
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2.5em;
+    font-weight: bold;
+    color: #ffeb3b; /* Yellow */
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+    z-index: 10003; /* Above modal content */
+    pointer-events: none; /* Don't block clicks */
+    animation: shootout-fade 0.5s ease-out forwards;
+}
+
+@keyframes shootout-fade {
+    0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -70%) scale(1.2); } /* Fade up and out */
+}
+
+/* Auto Attack Button Active State */
+#battle-auto-attack-btn[data-active="true"] {
+    background-color: #4caf50; /* Green when active */
+    border-color: #388e3c;
+}
+#battle-auto-attack-btn[data-active="true"]:hover {
+    background-color: #5cb860;
+    border-color: #4caf50;
+}

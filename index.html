@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MobFi</title> <!-- Changed title -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="loading-screen">
+        <img src="img/load.jpg" alt="Loading...">
+        <div id="loading-bar-container">
+            <div id="loading-bar"></div>
+        </div>
+    </div>
+
+    <!-- Custom Alert Box -->
+    <div id="custom-alert" class="custom-alert-hidden">
+        <p id="custom-alert-message"></p>
+        <button id="custom-alert-close" class="btn btn-brown">OK</button> <!-- Added classes -->
+    </div>
+
+    <div id="mobile-container"> <!-- Start Mobile Container -->
+        <button id="show-dashboard-btn" class="show-ui-btn" title="Show User Dashboard">👤</button> <!-- Show Dashboard Button -->
+        <div id="map">
+            <!-- Map Control Buttons -->
+            <div class="map-controls">
+                <button id="zoom-in-btn" class="btn" title="Zoom In">+</button> <!-- Added class -->
+                <button id="zoom-out-btn" class="btn" title="Zoom Out">-</button> <!-- Added class -->
+                <button id="center-map-btn" class="btn" title="Center on Me">🎯</button> <!-- Added class -->
+            </div>
+        </div>
+        <div id="dashboard">
+            <button class="minimize-btn" title="Minimize User Dashboard">_</button> <!-- Minimize Dashboard Button -->
+            <div class="dashboard-header">
+                 <h2>USER DASHBOARD</h2> <!-- Changed title -->
+            </div>
+            <div class="dashboard-section">
+                <label for="username-input">Username:</label>
+                <input type="text" id="username-input" placeholder="Enter username">
+            </div>
+            <div class="dashboard-section">
+                <label for="alias-input">Alias:</label>
+                <input type="text" id="alias-input" placeholder="Enter alias">
+            </div>
+            <div class="dashboard-actions">
+                <button id="save-user-info-btn" class="btn btn-blue">Save Info</button> <!-- Changed to btn-blue -->
+            </div>
+            <div class="dashboard-section">
+            <span class="label">Cash:</span>
+            <span class="value">$<span id="cash-amount">0</span></span>
+        </div>
+        <div class="dashboard-section">
+            <span class="label">Organization:</span> <!-- Renamed label -->
+            <span class="value" id="user-organization">None</span> <!-- Renamed ID -->
+        </div>
+        <div class="dashboard-actions">
+             <button id="leave-organization-button" class="btn btn-red" style="display: none;">Leave Organization</button> <!-- Added classes -->
+        </div>
+        <!-- Inventory Section Removed from Dashboard -->
+        <!-- Equipment/Inventory/Stats Buttons -->
+        <div class="dashboard-actions button-row"> <!-- Added button-row class -->
+            <button id="open-stats-btn" class="btn btn-blue">Stats</button> <!-- Added Stats button -->
+            <button id="open-equipment-btn" class="btn btn-blue">Equipment</button> <!-- Kept btn-blue -->
+            <button id="open-inventory-btn" class="btn btn-blue">Inventory</button> <!-- Changed to btn-blue -->
+        </div>
+    </div>
+
+    <!-- Protection Money Book -->
+    <div id="protection-book" style="display: none;">
+        <button class="minimize-btn" title="Minimize Book">_</button> <!-- Minimize Button -->
+        <h3>Protection Book</h3>
+        <ul id="controlled-businesses-list">
+            <!-- List items will be added here by JS -->
+        </ul>
+    </div>
+
+        <!-- Button to show the book when minimized -->
+        <button id="show-book-btn" class="show-ui-btn" title="Show Protection Book">📖</button> <!-- Changed class -->
+    </div> <!-- End Mobile Container -->
+
+    <!-- Library Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+
+    <!-- Game Scripts -->
+    <script src="items.js"></script>       <!-- Item definitions -->
+    <script src="equipment.js"></script>   <!-- Equipment definitions and logic -->
+    <script src="enemy.js"></script>       <!-- Enemy class and spawning -->
+    <script src="battle.js"></script>      <!-- Battle simulation logic -->
+    <script src="script.js"></script>      <!-- Main game logic (must be last) -->
+
+
+    <!-- Equipment Modal -->
+    <div id="equipment-modal" class="modal-hidden">
+        <div class="modal-content">
+            <span class="close-btn" id="close-equipment-btn">&times;</span>
+            <h2>Equipment</h2>
+            <div class="equipment-layout">
+                <div class="character-preview">
+                    <!-- Optional: Character image or representation -->
+                    <p>[Character Preview]</p>
+                </div>
+                <div class="equipment-slots">
+                    <div class="equipment-slot" data-slot-type="head">
+                        <span class="slot-label">Head</span>
+                        <div class="slot-item"></div>
+                    </div>
+                    <div class="equipment-slot" data-slot-type="chest">
+                        <span class="slot-label">Chest</span>
+                        <div class="slot-item"></div>
+                    </div>
+                    <div class="equipment-slot" data-slot-type="legs">
+                        <span class="slot-label">Legs</span>
+                        <div class="slot-item"></div>
+                    </div>
+                    <div class="equipment-slot" data-slot-type="feet">
+                        <span class="slot-label">Feet</span>
+                        <div class="slot-item"></div>
+                    </div>
+                    <div class="equipment-slot" data-slot-type="weapon">
+                        <span class="slot-label">Weapon</span>
+                        <div class="slot-item"></div>
+                    </div>
+                    <div class="equipment-slot" data-slot-type="offhand">
+                        <span class="slot-label">Off-hand</span>
+                        <div class="slot-item"></div>
+                    </div>
+                    <!-- Add more slots as needed (e.g., rings, amulet) -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inventory Modal -->
+    <div id="inventory-modal" class="modal-hidden">
+        <div class="modal-content">
+            <span class="close-btn" id="close-inventory-btn">&times;</span>
+            <h2>Inventory</h2>
+            <div class="inventory-modal-content">
+                 <ul id="inventory-list">
+                    <!-- Items will be listed here by JS -->
+                    <li>(Empty)</li>
+                </ul>
+                <!-- Maybe add filters or sorting options later -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Info Modal -->
+    <div id="stats-modal" class="modal-hidden">
+        <div class="modal-content">
+            <span class="close-btn" id="close-stats-btn">&times;</span>
+            <h2>Player Information</h2>
+            <div class="stats-modal-content">
+                <div class="stats-section">
+                    <h4>General</h4>
+                    <p><strong>Username:</strong> <span id="stats-username">N/A</span></p>
+                    <p><strong>Alias:</strong> <span id="stats-alias">N/A</span></p>
+                    <p><strong>Level:</strong> <span id="stats-level">1</span></p>
+                    <p><strong>Experience:</strong> <span id="stats-experience">0</span> / <span id="stats-exp-needed">100</span></p> <!-- Example EXP needed -->
+                    <p><strong>Power:</strong> <span id="stats-power">0</span></p>
+                </div>
+                <div class="stats-section">
+                    <h4>Base Stats</h4>
+                    <p><strong>Influence:</strong> <span id="stats-influence">0</span></p>
+                    <p><strong>Strength:</strong> <span id="stats-strength">0</span></p>
+                    <p><strong>Agility:</strong> <span id="stats-agility">0</span></p>
+                    <p><strong>Vitality:</strong> <span id="stats-vitality">0</span></p>
+                    <p><strong>Hit Rate:</strong> <span id="stats-hitRate">0</span></p>
+                </div>
+                <div class="stats-section">
+                    <h4>Character Stats</h4>
+                    <p><strong>Defence:</strong> <span id="stats-defence">0</span></p>
+                    <p><strong>Evasion Rate (%):</strong> <span id="stats-evasionRate">0</span></p>
+                    <p><strong>Critical Rate (%):</strong> <span id="stats-criticalRate">0</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Battle Modal -->
+    <div id="battle-modal" class="modal-hidden">
+        <div class="modal-content battle-modal-content">
+            <!-- No close button initially, battle must conclude -->
+            <h2>Battle!</h2>
+            <div class="battle-interface">
+                <!-- Player Area -->
+                <div class="battle-participant player-area">
+                    <h4 id="battle-player-name">Player</h4>
+                    <div class="health-bar-container">
+                        <div id="battle-player-health-bar" class="health-bar"></div>
+                    </div>
+                    <p>HP: <span id="battle-player-hp">100</span> / <span id="battle-player-max-hp">100</span></p>
+                    <!-- Player sprite/image could go here -->
+                </div>
+
+                <!-- VS Separator -->
+                <div class="battle-vs">VS</div>
+
+                <!-- Enemy Area -->
+                <div class="battle-participant enemy-area">
+                    <h4 id="battle-enemy-name">Enemy</h4>
+                     <div class="health-bar-container">
+                        <div id="battle-enemy-health-bar" class="health-bar"></div>
+                    </div>
+                    <p>HP: <span id="battle-enemy-hp">???</span> / <span id="battle-enemy-max-hp">???</span></p>
+                     <!-- Enemy sprite/image could go here -->
+                </div>
+            </div>
+
+            <!-- Shootout Visual Placeholder -->
+            <div id="shootout-visual" class="shootout-visual" style="display: none;">💥 BANG! 💥</div>
+
+            <!-- Action Buttons -->
+            <div id="battle-actions" class="battle-actions">
+                <button id="battle-attack-btn" class="btn btn-red">Attack</button>
+                <button id="battle-auto-attack-btn" class="btn btn-blue" data-active="false">Auto Attack</button>
+                <button id="battle-flee-btn" class="btn btn-grey">Flee</button> <!-- Enabled -->
+            </div>
+
+            <!-- Battle Log -->
+            <div id="battle-log" class="battle-log">
+                <p>Battle Log:</p>
+                <!-- Log messages will be added here -->
+            </div>
+
+             <!-- Battle Result Message Area -->
+            <div id="battle-result" class="battle-result" style="display: none;">
+                <p id="battle-result-message"></p>
+                <button id="battle-close-btn" class="btn btn-brown">Close</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
