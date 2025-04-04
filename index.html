@@ -90,9 +90,13 @@
     <!-- Game Scripts -->
     <script src="items.js"></script>       <!-- Item definitions -->
     <script src="equipment.js"></script>   <!-- Equipment definitions and logic -->
+    <script src="shop.js"></script>        <!-- Shop class and logic -->
     <script src="enemy.js"></script>       <!-- Enemy class and spawning -->
     <script src="battle.js"></script>      <!-- Battle simulation logic -->
-    <script src="script.js"></script>      <!-- Main game logic (must be last) -->
+    <!-- Corrected Script Order -->
+    <script src="initialization.js"></script> <!-- Loading, map init, game start (needs Shop) -->
+    <script src="gameWorld.js"></script>   <!-- Core game state, data, logic (depends on map) -->
+    <script src="uiManager.js"></script>   <!-- UI updates, DOM manipulation, event listeners (depends on map, gameWorld) -->
 
 
     <!-- Equipment Modal -->
@@ -180,6 +184,33 @@
                     <p><strong>Critical Rate (%):</strong> <span id="stats-criticalRate">0</span></p>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Shop Modal -->
+    <div id="shop-modal" class="modal modal-hidden">
+        <div class="modal-content shop-modal-content">
+            <span class="close-btn" id="close-shop-btn">&times;</span>
+            <h2 id="shop-name">Shop</h2>
+            <div class="shop-interface">
+                <!-- Buy Section -->
+                <div class="shop-section shop-buy-section">
+                    <h3>Buy Items</h3>
+                    <ul id="shop-buy-list">
+                        <!-- Items available for purchase will be listed here -->
+                        <li>Loading...</li>
+                    </ul>
+                </div>
+                <!-- Sell Section -->
+                <div class="shop-section shop-sell-section">
+                    <h3>Sell Items (Your Inventory)</h3>
+                    <ul id="shop-sell-list">
+                        <!-- Player's sellable inventory items will be listed here -->
+                        <li>Loading...</li>
+                    </ul>
+                </div>
+            </div>
+            <div id="shop-message" class="shop-message" style="display: none;"></div> <!-- For buy/sell feedback -->
         </div>
     </div>
 

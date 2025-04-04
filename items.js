@@ -62,6 +62,11 @@ itemsDatabase.set('KEY002', new Item('KEY002', 'Office Key', 'Unlocks the back o
 itemsDatabase.set('RING001', new Item('RING001', 'Don\'s Ring', 'A heavy gold ring, signifies Mafia status.', ItemType.NON_CONSUMABLE, NonConsumableType.MAFIA_RING, false));
 itemsDatabase.set('RING002', new Item('RING002', 'Capo\'s Signet', 'A silver ring worn by Capos.', ItemType.NON_CONSUMABLE, NonConsumableType.MAFIA_RING, false));
 
+// --- Mafia Themed Items ---
+itemsDatabase.set('UTIL003', new Item('UTIL003', 'Brass Knuckles', 'Adds impact to your arguments.', ItemType.NON_CONSUMABLE, NonConsumableType.UTILITY, false)); // Might be better as equipment later
+itemsDatabase.set('UTIL004', new Item('UTIL004', 'Burner Phone', 'Untraceable communication device.', ItemType.NON_CONSUMABLE, NonConsumableType.UTILITY, true, 5)); // Stackable? Maybe charges?
+itemsDatabase.set('DRUG003', new Item('DRUG003', 'Stimulant Shot', 'Temporary boost to combat stats.', ItemType.CONSUMABLE, ConsumableType.DRUG, true, 5));
+
 
 // Function to get an item by its ID
 function getItemById(id) {

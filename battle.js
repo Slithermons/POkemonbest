@@ -352,7 +352,43 @@ function endBattle(playerWon) {
         } else {
             console.error("removeEnemyFromMap function is not available!");
         }
-        // TODO: Grant experience, loot, etc.
+
+        // --- Grant Loot ---
+        if (typeof currentBattle.enemy.getLoot === 'function') {
+            const lootDrops = currentBattle.enemy.getLoot(); // Get array of { itemId, quantity }
+            if (lootDrops && lootDrops.length > 0) {
+                addLogEntry("Loot obtained:", 'result');
+                lootDrops.forEach(drop => {
+                    if (drop.itemId === 'MONEY') {
+                        // Handle money drop
+                        if (typeof currentCash !== 'undefined' && typeof cashAmountElement !== 'undefined') {
+                            currentCash += drop.quantity;
+                            cashAmountElement.textContent = currentCash; // Update UI
+                            addLogEntry(`- $${drop.quantity}`, 'result');
+                            console.log(`Added $${drop.quantity} cash.`);
+                        } else {
+                            console.warn("Cannot add money loot: currentCash or cashAmountElement not found.");
+                        }
+                    } else {
+                        // Handle item drop
+                        if (typeof addItemToInventory === 'function' && typeof getItemById === 'function') {
+                            const itemInfo = getItemById(drop.itemId); // Get item details for logging
+                            const itemName = itemInfo ? itemInfo.name : drop.itemId;
+                            addItemToInventory(drop.itemId, drop.quantity); // Add to inventory (function from script.js)
+                            addLogEntry(`- ${itemName} x${drop.quantity}`, 'result');
+                        } else {
+                            console.warn(`Cannot add item loot ${drop.itemId}: addItemToInventory or getItemById function not found.`);
+                        }
+                    }
+                });
+            } else {
+                addLogEntry("No loot dropped.", 'result');
+            }
+        } else {
+            console.warn("Enemy does not have a getLoot method.");
+        }
+        // TODO: Grant experience
+
     } else {
         message = `${currentBattle.player.name} defeated! Game Over?`;
         messageClass = "defeat";

@@ -62,7 +62,60 @@ class Enemy {
 
         // Set initial direction (can be randomized later if needed)
         this.initialDirectionClass = 'walk-down';
+
+        // Define potential loot based on enemy type
+        this.defineLootTable();
     }
+
+    defineLootTable() {
+        this.lootTable = []; // Array of { itemId: string, chance: float (0-1), quantity: [min, max] }
+        switch (this.name) {
+            case "Associates":
+                this.lootTable = [
+                    { itemId: 'FOOD001', chance: 0.3, quantity: [1, 2] }, // Canned Beans
+                    { itemId: 'CRAFT001', chance: 0.2, quantity: [1, 3] }, // Scrap Metal
+                    { itemId: 'MED002', chance: 0.1, quantity: [1, 1] }  // Bandages
+                ];
+                break;
+            case "Soldiers":
+                this.lootTable = [
+                    { itemId: 'MED001', chance: 0.4, quantity: [1, 1] }, // Small Medkit
+                    { itemId: 'FOOD002', chance: 0.3, quantity: [1, 2] }, // Energy Bar
+                    { itemId: 'CRAFT001', chance: 0.4, quantity: [2, 5] }, // Scrap Metal
+                    { itemId: 'CRAFT002', chance: 0.15, quantity: [1, 1] }, // Duct Tape
+                    { itemId: 'UTIL003', chance: 0.05, quantity: [1, 1] } // Brass Knuckles (low chance)
+                ];
+                break;
+            case "Caporegimes":
+                this.lootTable = [
+                    { itemId: 'DRUG001', chance: 0.5, quantity: [1, 1] }, // Adrenaline Shot
+                    { itemId: 'DRUG002', chance: 0.4, quantity: [1, 2] }, // Painkillers
+                    { itemId: 'DRUG003', chance: 0.3, quantity: [1, 1] }, // Stimulant Shot
+                    { itemId: 'CRAFT002', chance: 0.5, quantity: [1, 3] }, // Duct Tape
+                    { itemId: 'KEY001', chance: 0.1, quantity: [1, 1] },   // Warehouse Key (rare)
+                    { itemId: 'RING002', chance: 0.08, quantity: [1, 1] }  // Capo's Signet (rare)
+                ];
+                break;
+        }
+        // Add a small chance for money drop for all types
+        this.lootTable.push({ itemId: 'MONEY', chance: 0.6, quantity: [Math.floor(this.power / 10), Math.floor(this.power / 5)] });
+    }
+
+    // Method to determine loot based on the table
+    getLoot() {
+        const droppedLoot = [];
+        this.lootTable.forEach(itemDrop => {
+            if (Math.random() < itemDrop.chance) {
+                const quantity = Math.floor(Math.random() * (itemDrop.quantity[1] - itemDrop.quantity[0] + 1)) + itemDrop.quantity[0];
+                if (quantity > 0) {
+                    droppedLoot.push({ itemId: itemDrop.itemId, quantity: quantity });
+                }
+            }
+        });
+        console.log(`${this.name} dropped loot:`, droppedLoot);
+        return droppedLoot; // Returns an array of { itemId: string, quantity: number }
+    }
+
 
     // Simplified movement: Randomly move within a small radius
     move() {
