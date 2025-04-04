@@ -78,7 +78,10 @@ window.addEventListener('load', () => {
 
 
 // Initialize the map
-const map = L.map('map', { attributionControl: false }).setView([51.505, -0.09], 13); // Default view if geolocation fails, disable attribution
+const map = L.map('map', {
+    attributionControl: false, // Disable attribution text
+    zoomControl: false // Disable default zoom buttons
+}).setView([51.505, -0.09], 13); // Default view if geolocation fails
 
 // Add CartoDB Dark Matter tile layer (Reverted)
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -110,6 +113,22 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     return distance;
 }
 
+// --- Item & Weapon Definitions ---
+const items = {
+    medkit: { name: "Medkit", description: "Restores some health.", type: "consumable", effect: { health: 50 } },
+    lockpick: { name: "Lockpick", description: "May bypass certain obstacles.", type: "tool" }
+};
+
+const weapons = {
+    pistol: { name: "Pistol", description: "Basic firearm.", type: "firearm", damage: 10, ammo: 6 }
+};
+
+// --- Player State ---
+let playerHealth = 100; // Example player health
+let playerInventory = []; // Array to hold item/weapon objects possessed by the player
+// Example: playerInventory = [ { id: 'medkit', quantity: 1 }, { id: 'pistol', ammo: 6 } ];
+
+
 // --- Cash Drop Data and Spawning ---
 const cashDropData = { name: 'Cash Drop', minAmount: 50, maxAmount: 500 };
 
@@ -131,6 +150,69 @@ let currentOrganizationBaseLocation = null; // Store the LatLon of the joined or
 const TERRITORY_RADIUS = 2000; // 2km radius for territory control
 const protectionBookElement = document.getElementById('protection-book'); // Get protection book container
 const controlledBusinessesListElement = document.getElementById('controlled-businesses-list'); // Get list element
+const inventoryListElement = document.getElementById('inventory-list'); // Get inventory list element
+
+// --- Inventory Management ---
+
+// Function to update the inventory UI
+function updateInventoryUI() {
+    if (!inventoryListElement) return;
+
+    inventoryListElement.innerHTML = ''; // Clear current list
+
+    if (playerInventory.length === 0) {
+        inventoryListElement.innerHTML = '<li>(Empty)</li>';
+        return;
+    }
+
+    // Group items by ID for display (e.g., Medkit x2)
+    const groupedInventory = playerInventory.reduce((acc, itemEntry) => {
+        acc[itemEntry.id] = (acc[itemEntry.id] || 0) + (itemEntry.quantity || 1);
+        return acc;
+    }, {});
+
+    for (const itemId in groupedInventory) {
+        const itemDefinition = items[itemId] || weapons[itemId]; // Check both items and weapons
+        if (itemDefinition) {
+            const quantity = groupedInventory[itemId];
+            const listItem = document.createElement('li');
+            listItem.textContent = `${itemDefinition.name}${quantity > 1 ? ` x${quantity}` : ''}`;
+            listItem.title = itemDefinition.description; // Add tooltip
+            listItem.dataset.itemId = itemId; // Store item ID for potential click actions
+            // TODO: Add click listener for item usage
+            inventoryListElement.appendChild(listItem);
+        }
+    }
+}
+
+// Function to add an item/weapon to inventory
+function addItemToInventory(itemId, quantity = 1) {
+    const itemDefinition = items[itemId] || weapons[itemId];
+    if (!itemDefinition) {
+        console.error(`Attempted to add unknown item: ${itemId}`);
+        return;
+    }
+
+    // Find existing entry for stackable items
+    const existingEntryIndex = playerInventory.findIndex(entry => entry.id === itemId && itemDefinition.type === 'consumable'); // Only stack consumables for now
+
+    if (existingEntryIndex > -1 && itemDefinition.type === 'consumable') {
+        playerInventory[existingEntryIndex].quantity = (playerInventory[existingEntryIndex].quantity || 1) + quantity;
+    } else {
+        // Add new entry
+        const newEntry = { id: itemId };
+        if (itemDefinition.type === 'consumable') {
+            newEntry.quantity = quantity;
+        } else if (itemDefinition.type === 'firearm' && itemDefinition.ammo) {
+            newEntry.ammo = itemDefinition.ammo; // Add initial ammo for weapons
+        }
+        playerInventory.push(newEntry);
+    }
+
+    console.log(`Added ${quantity}x ${itemDefinition.name} to inventory.`, playerInventory);
+    updateInventoryUI(); // Refresh the UI
+}
+
 
 // --- Organization/Base Logic --- (Renamed section)
 
@@ -380,8 +462,22 @@ function collectCash(cashMarker, cashLat, cashLon) {
         currentCash += amount;
         cashAmountElement.textContent = currentCash;
         map.removeLayer(cashMarker); // Remove the collected cash drop
-        alert(`You collected $${amount}!`);
-        // TODO: Add transaction details to storage if needed
+
+        // Chance to get an item instead of cash
+        const ITEM_DROP_CHANCE = 0.2; // 20% chance
+        if (Math.random() < ITEM_DROP_CHANCE) {
+            // Give a random item (e.g., medkit for now)
+            const droppedItemId = 'medkit'; // Example: always drop medkit
+            addItemToInventory(droppedItemId);
+            alert(`You found a ${items[droppedItemId].name}!`);
+        } else {
+            // Collect cash
+            const amount = Math.floor(Math.random() * (cashDropData.maxAmount - cashDropData.minAmount + 1)) + cashDropData.minAmount;
+            currentCash += amount;
+            cashAmountElement.textContent = currentCash;
+            alert(`You collected $${amount}!`);
+            // TODO: Add transaction details to storage if needed
+        }
     } else {
         // Too far away
         alert(`You are too far away to collect this cash! (Distance: ${distance.toFixed(1)}m)`);
@@ -874,9 +970,19 @@ async function initializeGame() {
         currentUserLocation = { lat: initialLat, lon: initialLon };
         console.log("Geolocation successful:", currentUserLocation);
         map.setView([initialLat, initialLon], 16); // Zoom in closer for actual location
+
+        // Create animated player marker using DivIcon
+        const playerIcon = L.divIcon({
+            html: '<div class="player-sprite walk-down"></div>', // Default to walking down
+            className: 'player-marker', // Class for the marker container itself (optional styling)
+            iconSize: [64, 64], // Size of one frame (updated)
+            iconAnchor: [32, 32] // Anchor point (center) (updated)
+        });
+
         if (!userMarker) {
-            userMarker = L.marker([initialLat, initialLon]).addTo(map).bindPopup('You are here!');
+            userMarker = L.marker([initialLat, initialLon], { icon: playerIcon }).addTo(map).bindPopup('You are here!');
         } else {
+            // If marker exists, just update position (icon is already set)
             userMarker.setLatLng([initialLat, initialLon]);
         }
         userMarker.openPopup();
@@ -887,11 +993,25 @@ async function initializeGame() {
         initialLon = -0.09;  // Default lon
         currentUserLocation = { lat: initialLat, lon: initialLon }; // Set default location
         map.setView([initialLat, initialLon], 13); // Wider view for default
+
+        // Create animated player marker using DivIcon (same as above for consistency)
+        const playerIcon = L.divIcon({
+            html: '<div class="player-sprite walk-down"></div>', // Default to walking down
+            className: 'player-marker',
+            iconSize: [64, 64], // Size of one frame (updated)
+            iconAnchor: [32, 32] // Anchor point (center) (updated)
+        });
+
         if (!userMarker) {
-            userMarker = L.marker([initialLat, initialLon]).addTo(map).bindPopup('Default location.');
+            userMarker = L.marker([initialLat, initialLon], { icon: playerIcon }).addTo(map).bindPopup('Default location.');
             userMarker.openPopup();
         } else {
-             userMarker.setLatLng([initialLat, initialLon]).setPopupContent('Default location.'); // Update existing marker
+             // If marker exists, just update position and popup
+             userMarker.setLatLng([initialLat, initialLon]).setPopupContent('Default location.');
+             // Ensure icon is correct if it somehow got changed (though it shouldn't)
+             if (userMarker.getIcon() !== playerIcon) {
+                 userMarker.setIcon(playerIcon);
+             }
         }
         // No need to reject the outer promise here, we handled the error by setting defaults
     } finally {
@@ -920,14 +1040,55 @@ async function initializeGame() {
     console.log("Setting up position watching...");
     // Start watching for position changes (if geolocation available)
     if (navigator.geolocation && navigator.geolocation.watchPosition) {
+        let lastPos = null; // Store the last position to calculate movement vector
+
         navigator.geolocation.watchPosition(
             position => { // Success Callback for updates
                 const lat = position.coords.latitude;
                 const lon = position.coords.longitude;
-                currentUserLocation = { lat, lon }; // Update current location
+                const newPos = { lat, lon };
+
+                // Update marker position
                 if (userMarker) {
                     userMarker.setLatLng([lat, lon]);
                 }
+
+                // Determine movement direction and update sprite class
+                if (lastPos && userMarker) {
+                    const dLat = newPos.lat - lastPos.lat;
+                    const dLon = newPos.lon - lastPos.lon;
+                    const absLat = Math.abs(dLat);
+                    const absLon = Math.abs(dLon);
+
+                    const spriteElement = userMarker.getElement()?.querySelector('.player-sprite');
+
+                    if (spriteElement) {
+                        // Remove existing direction classes
+                        spriteElement.classList.remove('walk-up', 'walk-down', 'walk-left', 'walk-right');
+
+                        // Determine primary direction
+                        if (absLat > absLon) { // Moved more vertically
+                            if (dLat > 0) {
+                                spriteElement.classList.add('walk-up'); // Moving North (Sprite row 1)
+                            } else {
+                                spriteElement.classList.add('walk-down'); // Moving South (Sprite row 3)
+                            }
+                        } else if (absLon > absLat) { // Moved more horizontally
+                            if (dLon > 0) {
+                                spriteElement.classList.add('walk-right'); // Moving East (Sprite row 4)
+                            } else {
+                                spriteElement.classList.add('walk-left'); // Moving West (Sprite row 2)
+                            }
+                        } else {
+                            // Minimal movement or diagonal - keep previous or default to down? Defaulting to down.
+                            spriteElement.classList.add('walk-down');
+                        }
+                    }
+                }
+
+                currentUserLocation = newPos; // Update current location state
+                lastPos = newPos; // Store current position as the last position for the next update
+
                 console.log("User location updated:", currentUserLocation);
                 // Optional: Re-center map: map.panTo([lat, lon]);
                 // Optional: Fetch new data if user moves significantly? (Could use map.moveend)
@@ -950,6 +1111,7 @@ async function initializeGame() {
 
 // Initial UI update (shows 'None' initially before async operations)
 updateOrganizationUI();
+updateInventoryUI(); // Initial inventory UI update
 
 // Attach listener to leave button
 leaveOrganizationButton.addEventListener('click', leaveOrganization);
@@ -1019,6 +1181,32 @@ setupMinimizeToggle('dashboard', 'show-dashboard-btn');
 
 // Setup for Protection Book
 setupMinimizeToggle('protection-book', 'show-book-btn');
+
+
+// --- Map Control Button Listeners ---
+const zoomInBtn = document.getElementById('zoom-in-btn');
+const zoomOutBtn = document.getElementById('zoom-out-btn');
+const centerMapBtn = document.getElementById('center-map-btn');
+
+if (zoomInBtn) {
+    zoomInBtn.addEventListener('click', () => {
+        map.zoomIn();
+    });
+}
+if (zoomOutBtn) {
+    zoomOutBtn.addEventListener('click', () => {
+        map.zoomOut();
+    });
+}
+if (centerMapBtn) {
+    centerMapBtn.addEventListener('click', () => {
+        if (currentUserLocation) {
+            map.setView([currentUserLocation.lat, currentUserLocation.lon], map.getZoom()); // Keep current zoom level
+        } else {
+            alert("Current location not available yet.");
+        }
+    });
+}
 
 
 // --- Map Event Listeners ---

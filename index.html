@@ -18,7 +18,14 @@
     </div>
     <div id="mobile-container"> <!-- Start Mobile Container -->
         <button id="show-dashboard-btn" class="show-ui-btn" title="Show Player Info">ℹ️</button> <!-- Show Dashboard Button -->
-        <div id="map"></div>
+        <div id="map">
+            <!-- Map Control Buttons -->
+            <div class="map-controls">
+                <button id="zoom-in-btn" title="Zoom In">+</button>
+                <button id="zoom-out-btn" title="Zoom Out">-</button>
+                <button id="center-map-btn" title="Center on Me">🎯</button>
+            </div>
+        </div>
         <div id="dashboard">
             <button class="minimize-btn" title="Minimize Player Info">_</button> <!-- Minimize Dashboard Button -->
             <div class="dashboard-header">
@@ -34,6 +41,14 @@
         </div>
         <div class="dashboard-actions">
              <button id="leave-organization-button" style="display: none;">Leave Organization</button> <!-- Renamed ID and text -->
+        </div>
+        <!-- Inventory Section -->
+        <div class="dashboard-section inventory-section">
+            <span class="label">Inventory:</span>
+            <ul id="inventory-list">
+                <!-- Items will be listed here by JS -->
+                <li>(Empty)</li>
+            </ul>
         </div>
     </div>
 

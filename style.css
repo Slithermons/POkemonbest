@@ -128,6 +128,34 @@ body {
     font-weight: 500;
 }
 
+/* Inventory Section Styles */
+.inventory-section {
+    align-items: flex-start; /* Align label top */
+    border-top: 1px solid #555; /* Separator */
+    padding-top: 10px;
+    margin-top: 10px;
+}
+.inventory-section .label {
+    margin-bottom: 5px; /* Space below label */
+}
+#inventory-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    width: 100%; /* Take full width */
+    font-size: 0.9em;
+    color: #ccc; /* Lighter text for items */
+}
+#inventory-list li {
+    margin-bottom: 4px;
+    cursor: pointer; /* Indicate items might be clickable */
+    padding: 2px 0;
+}
+#inventory-list li:hover {
+    color: #fff; /* Highlight on hover */
+}
+
+
 /* Action Button Styles (e.g., Leave Org) */
 .dashboard-actions {
     margin-top: 12px;
@@ -306,4 +334,59 @@ body {
 /* Lighten dark icons for dark theme */
 .map-icon-darktheme {
     filter: invert(85%) brightness(1.1); /* Invert to light grey and slightly brighten */
+}
+
+/* Player Sprite Animation */
+.player-marker .player-sprite { /* Target the inner div */
+    width: 64px;  /* Frame width */
+    height: 64px; /* Frame height */
+    background-image: url('img/walk.png'); /* Updated path */
+    background-repeat: no-repeat;
+    /* Animation properties: name duration steps timing iteration */
+    animation: walk-cycle 1s steps(9) infinite; /* steps(9) for 9 frames */
+}
+
+/* Keyframes for horizontal movement across 9 frames */
+@keyframes walk-cycle {
+   from { background-position-x: 0px; }
+     to { background-position-x: -576px; } /* 9 frames * 64px width */
+}
+
+/* Classes to select the row (direction) */
+.player-sprite.walk-up { background-position-y: 0px; } /* 1st row */
+.player-sprite.walk-left { background-position-y: -64px; } /* 2nd row */
+.player-sprite.walk-down { background-position-y: -128px; } /* 3rd row (Default) */
+.player-sprite.walk-right { background-position-y: -192px; } /* 4th row */
+
+
+/* Map Control Buttons */
+.map-controls {
+    position: absolute;
+    bottom: 10px; /* Position near bottom */
+    right: 10px; /* Position near right */
+    z-index: 1000; /* Above map tiles, below popups/UI panels if needed */
+    display: flex;
+    flex-direction: column; /* Stack buttons vertically */
+}
+
+.map-controls button {
+    background-color: rgba(70, 70, 70, 0.85); /* Dark background */
+    color: #e0e0e0; /* Light icon/text */
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin-top: 5px; /* Space between buttons */
+    cursor: pointer;
+    font-size: 1.2em; /* Larger symbols */
+    line-height: 1;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    transition: background-color 0.2s ease;
+}
+
+.map-controls button:hover {
+    background-color: rgba(90, 90, 90, 0.95);
+}
+
+#center-map-btn {
+    font-size: 1.4em; /* Make target icon slightly larger */
 }
