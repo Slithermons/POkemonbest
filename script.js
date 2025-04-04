@@ -9,52 +9,73 @@ if (loadingBar) {
     // Start simulating progress
     loadingInterval = setInterval(() => {
         const elapsedTime = performance.now() - startTime;
+        // Calculate progress based ONLY on time elapsed towards minimumLoadTime
         const progress = Math.min(100, (elapsedTime / minimumLoadTime) * 100);
         loadingBar.style.width = progress + '%';
 
-        if (progress >= 100) {
-            clearInterval(loadingInterval); // Stop the interval when 100% is reached
-            loadingInterval = null;
+        // Stop interval based on time, not just visual progress
+        if (elapsedTime >= minimumLoadTime) {
+            loadingBar.style.width = '100%'; // Ensure it visually completes
+            if (loadingInterval) {
+                clearInterval(loadingInterval);
+                loadingInterval = null;
+            }
         }
     }, 50); // Update progress roughly 20 times per second
 } else {
     console.error("Loading bar element not found!");
 }
 
+let isWindowLoaded = false;
+let isInitialLocationDone = false;
+let hideScreenTimeout = null; // To store the timeout for hiding the screen
 
-window.addEventListener('load', () => {
-    if (loadingScreen && loadingBar) {
-        // Ensure bar is 100% when load event fires
-        loadingBar.style.width = '100%';
-        if (loadingInterval) {
-             clearInterval(loadingInterval); // Clear interval if it's still running
-             loadingInterval = null;
-        }
-
-        const elapsedTime = performance.now() - startTime;
-        const remainingTime = minimumLoadTime - elapsedTime;
-
-        const hideLoadingScreen = () => {
-            loadingScreen.style.display = 'none';
-            console.log("Loading screen hidden.");
-            if (loadingInterval) { // Double check interval clearance
-                clearInterval(loadingInterval);
-                loadingInterval = null;
-            }
-        };
-
-        if (remainingTime > 0) {
-            console.log(`Assets loaded in ${elapsedTime.toFixed(0)}ms. Waiting an additional ${remainingTime.toFixed(0)}ms.`);
-            setTimeout(hideLoadingScreen, remainingTime);
-        } else {
-            hideLoadingScreen();
-            console.log(`Assets loaded in ${elapsedTime.toFixed(0)}ms (>= ${minimumLoadTime}ms). Loading screen hidden immediately.`);
-        }
-    } else {
-        if (!loadingScreen) console.error("Loading screen element not found!");
-        if (!loadingBar && loadingScreen) console.error("Loading bar element not found!"); // Check specifically for bar if screen exists
+// Function to check all conditions and hide the loading screen
+function checkAndHideLoadingScreen() {
+    // Only proceed if both flags are true
+    if (!isWindowLoaded || !isInitialLocationDone) {
+        // console.log(`Check failed: isWindowLoaded=${isWindowLoaded}, isInitialLocationDone=${isInitialLocationDone}`);
+        return;
     }
+
+    console.log("All conditions met (Window Loaded + Location Done). Checking minimum time...");
+
+    // Ensure bar is 100% and interval is stopped (redundant check, but safe)
+    if (loadingBar) {
+        loadingBar.style.width = '100%';
+    }
+    if (loadingInterval) {
+        clearInterval(loadingInterval);
+        loadingInterval = null;
+    }
+
+    // Calculate remaining time for the minimum duration
+    const elapsedTime = performance.now() - startTime;
+    const remainingTime = Math.max(0, minimumLoadTime - elapsedTime); // Ensure remainingTime is not negative
+
+    // Clear any existing timeout to avoid multiple triggers if checkAndHide is called multiple times quickly
+    if (hideScreenTimeout) {
+        clearTimeout(hideScreenTimeout);
+    }
+
+    console.log(`Waiting ${remainingTime.toFixed(0)}ms more for minimum duration.`);
+
+    hideScreenTimeout = setTimeout(() => {
+        if (loadingScreen) {
+            loadingScreen.style.display = 'none';
+            console.log("Loading screen hidden after all conditions met and minimum duration.");
+        }
+        hideScreenTimeout = null; // Clear the stored timeout ID
+    }, remainingTime);
+}
+
+// 1. Listen for window load
+window.addEventListener('load', () => {
+    console.log("Window loaded.");
+    isWindowLoaded = true;
+    checkAndHideLoadingScreen(); // Check if location is also done
 });
+
 
 // Initialize the map
 const map = L.map('map', { attributionControl: false }).setView([51.505, -0.09], 13); // Default view if geolocation fails, disable attribution
@@ -824,24 +845,27 @@ async function initializeGame() {
     console.log("Initializing game...");
     let initialLat, initialLon;
 
-    try {
-        // Promisify getCurrentPosition for await
-        const position = await new Promise((resolve, reject) => {
-            if (!navigator.geolocation) {
-                reject(new Error("Geolocation not supported"));
-                return;
-            }
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-                enableHighAccuracy: true,
-                timeout: 10000, // Timeout for initial fix
-                maximumAge: 0
-            });
+    // --- Location Fetching ---
+    const locationPromise = new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error("Geolocation not supported"));
+            return;
+        }
+        console.log("Attempting to get current position...");
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 15000, // Increased timeout for initial fix
+            maximumAge: 0
         });
+    });
+
+    try {
+        const position = await locationPromise;
         initialLat = position.coords.latitude;
         initialLon = position.coords.longitude;
         currentUserLocation = { lat: initialLat, lon: initialLon };
         console.log("Geolocation successful:", currentUserLocation);
-        map.setView([initialLat, initialLon], 16);
+        map.setView([initialLat, initialLon], 16); // Zoom in closer for actual location
         if (!userMarker) {
             userMarker = L.marker([initialLat, initialLon]).addTo(map).bindPopup('You are here!');
         } else {
@@ -850,34 +874,42 @@ async function initializeGame() {
         userMarker.openPopup();
 
     } catch (error) {
-        console.warn("Geolocation failed on initial load or timed out. Using default location.", error);
+        console.warn("Geolocation failed or timed out. Using default location.", error.message);
         initialLat = 51.505; // Default lat
         initialLon = -0.09;  // Default lon
-        currentUserLocation = { lat: initialLat, lon: initialLon };
+        currentUserLocation = { lat: initialLat, lon: initialLon }; // Set default location
         map.setView([initialLat, initialLon], 13); // Wider view for default
         if (!userMarker) {
             userMarker = L.marker([initialLat, initialLon]).addTo(map).bindPopup('Default location.');
             userMarker.openPopup();
+        } else {
+             userMarker.setLatLng([initialLat, initialLon]).setPopupContent('Default location.'); // Update existing marker
         }
+        // No need to reject the outer promise here, we handled the error by setting defaults
+    } finally {
+        // --- Signal that location attempt is done ---
+        console.log("Initial location attempt finished.");
+        isInitialLocationDone = true;
+        checkAndHideLoadingScreen(); // Check if we can hide the screen now
     }
 
-    // Spawn initial items near the starting location
+    // --- Continue with other setup tasks AFTER location is determined ---
+    console.log("Spawning initial items...");
     spawnCashDrops(initialLat, initialLon);
     spawnRivals(initialLat, initialLon);
 
-    // Attempt to find/join the initial organization
+    console.log("Attempting to find initial organization...");
     await findAndJoinInitialOrganization(initialLat, initialLon);
 
-    // *** Fetch initial businesses for the current view AFTER attempting to join org ***
+    console.log("Fetching initial businesses...");
     const initialBounds = map.getBounds();
-    console.log("Fetching initial businesses for bounds:", initialBounds);
     const initialBusinesses = await fetchBusinessesInBounds(initialBounds);
-    displayBusinesses(initialBusinesses); // Display newly fetched businesses
+    displayBusinesses(initialBusinesses);
 
-    // *** Explicitly update markers and UI AFTER initial businesses are displayed ***
-    console.log("Running initial business marker update.");
-    updateBusinessMarkers(); // This updates icons/popups based on org status and updates Protection Book
+    console.log("Running initial business marker update...");
+    updateBusinessMarkers(); // Update icons/popups and Protection Book
 
+    console.log("Setting up position watching...");
     // Start watching for position changes (if geolocation available)
     if (navigator.geolocation && navigator.geolocation.watchPosition) {
         navigator.geolocation.watchPosition(
@@ -904,6 +936,8 @@ async function initializeGame() {
     } else {
          console.log("Geolocation is not supported or watchPosition unavailable. Position watching disabled.");
     }
+
+    console.log("initializeGame setup tasks complete.");
 }
 
 // Initial UI update (shows 'None' initially before async operations)
@@ -912,8 +946,22 @@ updateOrganizationUI();
 // Attach listener to leave button
 leaveOrganizationButton.addEventListener('click', leaveOrganization);
 
-// Start the game initialization process
-initializeGame();
+// 2. Start the game initialization process (which includes location fetching)
+// initializeGame is now async and will set isInitialLocationDone when location attempt finishes
+initializeGame().then(() => {
+    console.log("initializeGame promise resolved successfully.");
+    // Note: isInitialLocationDone is set inside initializeGame's finally block
+}).catch(error => {
+    console.error("Error during initializeGame execution:", error);
+    // Ensure the flag is set even if initializeGame fails later
+    // (though the finally block should handle most cases)
+    if (!isInitialLocationDone) {
+        console.warn("Setting isInitialLocationDone in catch block as a fallback.");
+        isInitialLocationDone = true;
+        checkAndHideLoadingScreen();
+    }
+});
+
 
 // --- Protection Book Minimize/Show Logic ---
 const protectionBookDiv = document.getElementById('protection-book');
