@@ -133,6 +133,38 @@ body {
     font-weight: 500;
 }
 
+/* --- HP Bar Styles (General) --- */
+.hp-bar-container {
+    width: 100px; /* Adjust width as needed for dashboard */
+    height: 12px; /* Slightly smaller height */
+    background-color: #444;
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 0 5px; /* Add some horizontal margin */
+    border: 1px solid #666;
+    display: inline-block; /* Allow it to sit inline with text */
+    vertical-align: middle; /* Align vertically with text */
+}
+
+.hp-bar {
+    height: 100%;
+    width: 100%; /* Start full */
+    background: linear-gradient(to right, #4caf50, #81c784); /* Green gradient */
+    border-radius: 6px; /* Match container */
+    transition: width 0.3s ease-in-out;
+}
+
+/* Adjust dashboard section flex alignment for HP bar */
+#dashboard .dashboard-section:has(.hp-bar-container) {
+    justify-content: flex-start; /* Align items to the start */
+    gap: 5px; /* Add small gap between elements */
+}
+
+#dashboard .dashboard-section:has(.hp-bar-container) .value {
+    margin-left: auto; /* Push the numeric value to the right */
+}
+
+
 /* Inventory Section Styles */
 .inventory-section {
     align-items: flex-start; /* Align label top */
@@ -537,27 +569,14 @@ body {
     color: #fff;
 }
 
-.equipment-layout {
-    display: flex;
-    gap: 20px; /* Space between preview and slots */
-}
+/* .equipment-layout rule removed as slots are the only child now */
 
-.character-preview {
-    flex-basis: 40%; /* Adjust size as needed */
-    background-color: #1a1a1a; /* Very dark background */
-    border: 1px solid #444;
-    border-radius: 5px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 200px; /* Ensure some height */
-    color: #777;
-}
+/* .character-preview rule removed */
 
 .equipment-slots {
-    flex-basis: 60%; /* Adjust size as needed */
+    /* flex-basis removed, takes full width */
     display: grid;
-    grid-template-columns: repeat(2, 1fr); /* 2 columns */
+    grid-template-columns: repeat(3, 1fr); /* 3 columns */
     gap: 15px; /* Space between slots */
 }
 
@@ -1235,13 +1254,14 @@ body {
 
 #shop-buy-list li,
 #shop-sell-list li {
-    padding: 8px 5px;
+    padding: 6px 5px; /* Reduced vertical padding */
     border-bottom: 1px dotted #555;
     cursor: pointer;
     transition: background-color 0.2s ease;
     display: flex; /* Use flex for alignment */
     justify-content: space-between; /* Space out name and price/button */
     align-items: center;
+    font-size: 0.9em; /* Slightly smaller font for list items */
 }
 
 #shop-buy-list li:last-child,
@@ -1262,8 +1282,9 @@ body {
 .shop-item-price,
 .shop-item-value {
     font-weight: bold;
-    min-width: 50px; /* Ensure space for price */
+    min-width: 45px; /* Slightly reduce min-width */
     text-align: right;
+    font-size: 0.95em; /* Slightly smaller price font */
 }
 .shop-item-price { color: #ffeb3b; } /* Yellow for buy price */
 .shop-item-value { color: #81c784; } /* Green for sell value */
@@ -1272,9 +1293,9 @@ body {
 .shop-buy-button,
 .shop-sell-button {
     /* Use base .btn styles */
-    padding: 4px 8px; /* Smaller buttons */
-    font-size: 0.8em;
-    margin-left: 10px; /* Space from price/value */
+    padding: 3px 6px; /* Make buttons even smaller */
+    font-size: 0.75em; /* Smaller button text */
+    margin-left: 8px; /* Slightly reduce margin */
 }
 
 /* Specific colors for buy/sell buttons */

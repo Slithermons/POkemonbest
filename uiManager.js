@@ -84,6 +84,37 @@ function updateOrganizationUI() {
     }
 }
 
+// Function to update the HP display (bar and text)
+function updateHpUI() {
+    const hpBarElement = document.getElementById('player-hp-bar');
+    const currentHpElement = document.getElementById('player-current-hp');
+    const maxHpElement = document.getElementById('player-max-hp');
+
+    if (!hpBarElement || !currentHpElement || !maxHpElement) {
+        console.error("HP UI elements not found!");
+        return;
+    }
+
+    // Ensure maxHp is not zero to avoid division by zero
+    const maxHp = playerMaxHp > 0 ? playerMaxHp : 1; // Use global var from gameWorld.js
+    const currentHp = playerCurrentHp; // Use global var from gameWorld.js
+
+    const hpPercentage = Math.max(0, Math.min(100, (currentHp / maxHp) * 100));
+
+    hpBarElement.style.width = `${hpPercentage}%`;
+    currentHpElement.textContent = Math.round(currentHp); // Display rounded HP
+    maxHpElement.textContent = Math.round(maxHp); // Display rounded Max HP
+
+    // Optional: Change bar color based on HP percentage
+    if (hpPercentage < 25) {
+        hpBarElement.style.background = 'linear-gradient(to right, #c62828, #ef5350)'; // Red gradient
+    } else if (hpPercentage < 50) {
+        hpBarElement.style.background = 'linear-gradient(to right, #ff9800, #ffb74d)'; // Orange gradient
+    } else {
+        hpBarElement.style.background = 'linear-gradient(to right, #4caf50, #81c784)'; // Green gradient (default)
+    }
+}
+
 // Function to update the cash display
 function updateCashUI(amount) {
     if (cashAmountElement) {
@@ -761,7 +792,7 @@ function handlePopupOpenForActions(e) {
                 calculateCharacterStats(); // Recalculate derived stats (Function from gameWorld.js)
                 const currentPlayerBattleStats = {
                     name: playerAlias || playerUsername || "Player", // Use global vars from gameWorld.js
-                    health: playerHealth, // Use global var from gameWorld.js
+                    health: playerCurrentHp, // Use updated global var from gameWorld.js
                     attack: playerStats.strength, // Use global var from gameWorld.js
                     defense: playerCharacterStats.defence // Use global var from gameWorld.js
                 };
@@ -964,8 +995,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (event.target.tagName === 'LI' && event.target.dataset.itemId) {
                 const itemId = event.target.dataset.itemId;
                 console.log(`Clicked on inventory item: ${itemId}`);
-                // TODO: Implement item usage logic here (likely call a function in gameWorld.js)
-                showCustomAlert(`Using ${itemId} - Not implemented yet.`);
+                // Call the useItem function from gameWorld.js
+                useItem(itemId);
+                // Note: useItem handles alerts and inventory updates internally
             }
         });
 
@@ -1010,5 +1042,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadUserInfo(); // Load username/alias first
     updateOrganizationUI(); // Update based on initial state (likely 'None')
     updateCashUI(currentCash); // Show initial cash (0)
+    calculateCharacterStats(); // Calculate initial stats including Max HP (from gameWorld.js)
+    updateHpUI(); // Show initial HP
 
 }); // Close DOMContentLoaded listener

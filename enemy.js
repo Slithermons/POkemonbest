@@ -9,11 +9,11 @@ class Enemy {
         this.layerGroup = layerGroup; // Reference to the Leaflet layer group
 
         // Determine enemy type and properties (including stats)
-        this.setTypeAndProperties();
+        this.setTypeAndProperties(); // Sets name, power, stats, spriteSheet, etc.
 
-        // Create Leaflet divIcon for animated sprite
+        // Create Leaflet divIcon for animated sprite using the correct sheet
         this.icon = L.divIcon({
-            html: `<div class="enemy-sprite ${this.initialDirectionClass || 'walk-down'}"></div>`, // Inner div for sprite animation
+            html: `<div class="enemy-sprite ${this.initialDirectionClass || 'walk-down'}" style="background-image: url('${this.spriteSheet}');"></div>`, // Inner div for sprite animation with specific background
             className: 'enemy-marker', // Main marker class (no background needed)
             iconSize: [64, 64], // Match sprite frame size
             iconAnchor: [32, 64] // Anchor at bottom-center
@@ -37,19 +37,22 @@ class Enemy {
 
     setTypeAndProperties() {
         const typeRoll = Math.random();
-        // Determine name, power, and experience rate based on type
+        // Determine name, power, experience rate, and sprite sheet based on type
         if (typeRoll < 0.6) { // 60% chance for Associates
             this.name = "Associates";
-            this.power = Math.floor(Math.random() * (200 - 50 + 1)) + 50;
-            this.experienceRate = Math.floor(Math.random() * (20 - 5 + 1)) + 5; // Lower XP
+            this.power = Math.floor(Math.random() * (120 - 40 + 1)) + 40; // Adjusted power: 40-120
+            this.experienceRate = Math.floor(Math.random() * (15 - 5 + 1)) + 5; // Adjusted lower XP
+            this.spriteSheet = 'img/associates.png';
         } else if (typeRoll < 0.9) { // 30% chance for Soldiers
             this.name = "Soldiers";
-            this.power = Math.floor(Math.random() * (500 - 200 + 1)) + 200;
-            this.experienceRate = Math.floor(Math.random() * (50 - 20 + 1)) + 20; // Medium XP
+            this.power = Math.floor(Math.random() * (500 - 121 + 1)) + 121; // Power: 121-500 (Example range)
+            this.experienceRate = Math.floor(Math.random() * (50 - 15 + 1)) + 15; // Adjusted medium XP
+            this.spriteSheet = 'img/soldiers.png';
         } else { // 10% chance for Caporegimes
             this.name = "Caporegimes";
-            this.power = Math.floor(Math.random() * (5000 - 500 + 1)) + 500;
+            this.power = Math.floor(Math.random() * (2000 - 501 + 1)) + 501; // Power: 501-2000 (Example range)
             this.experienceRate = Math.floor(Math.random() * (200 - 50 + 1)) + 50; // Higher XP
+            this.spriteSheet = 'img/caporegimes.png';
         }
 
         // Add randomness multiplier to stats derived from power
@@ -74,7 +77,8 @@ class Enemy {
                 this.lootTable = [
                     { itemId: 'FOOD001', chance: 0.3, quantity: [1, 2] }, // Canned Beans
                     { itemId: 'CRAFT001', chance: 0.2, quantity: [1, 3] }, // Scrap Metal
-                    { itemId: 'MED002', chance: 0.1, quantity: [1, 1] }  // Bandages
+                    { itemId: 'MED002', chance: 0.1, quantity: [1, 1] },  // Bandages
+                    { itemId: 'MONEY', chance: 0.7, quantity: [20, 50] } // Added: 20-50$
                 ];
                 break;
             case "Soldiers":
@@ -83,7 +87,8 @@ class Enemy {
                     { itemId: 'FOOD002', chance: 0.3, quantity: [1, 2] }, // Energy Bar
                     { itemId: 'CRAFT001', chance: 0.4, quantity: [2, 5] }, // Scrap Metal
                     { itemId: 'CRAFT002', chance: 0.15, quantity: [1, 1] }, // Duct Tape
-                    { itemId: 'UTIL003', chance: 0.05, quantity: [1, 1] } // Brass Knuckles (low chance)
+                    { itemId: 'UTIL003', chance: 0.05, quantity: [1, 1] }, // Brass Knuckles (low chance)
+                    { itemId: 'MONEY', chance: 0.75, quantity: [50, 100] } // Added: 50-100$
                 ];
                 break;
             case "Caporegimes":
@@ -93,12 +98,16 @@ class Enemy {
                     { itemId: 'DRUG003', chance: 0.3, quantity: [1, 1] }, // Stimulant Shot
                     { itemId: 'CRAFT002', chance: 0.5, quantity: [1, 3] }, // Duct Tape
                     { itemId: 'KEY001', chance: 0.1, quantity: [1, 1] },   // Warehouse Key (rare)
-                    { itemId: 'RING002', chance: 0.08, quantity: [1, 1] }  // Capo's Signet (rare)
+                    { itemId: 'RING002', chance: 0.08, quantity: [1, 1] },  // Capo's Signet (rare)
+                    { itemId: 'MONEY', chance: 0.8, quantity: [100, 500] } // Added: 100-500$
                 ];
                 break;
+            default: // Default case if name doesn't match (shouldn't happen)
+                 // Add a fallback money drop just in case
+                this.lootTable.push({ itemId: 'MONEY', chance: 0.5, quantity: [1, 10] });
+                break;
         }
-        // Add a small chance for money drop for all types
-        this.lootTable.push({ itemId: 'MONEY', chance: 0.6, quantity: [Math.floor(this.power / 10), Math.floor(this.power / 5)] });
+        // Generic money drop line removed as it's handled per type now
     }
 
     // Method to determine loot based on the table

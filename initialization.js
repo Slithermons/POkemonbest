@@ -385,6 +385,10 @@ async function initializeGame() {
          console.log("Geolocation is not supported or watchPosition unavailable. Position watching disabled.");
     }
 
+    // Start HP Regeneration
+    console.log("Starting HP regeneration timer...");
+    startHpRegeneration(); // Function from gameWorld.js
+
     console.log("initializeGame setup tasks complete.");
 }
 

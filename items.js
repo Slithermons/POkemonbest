@@ -22,7 +22,7 @@ const NonConsumableType = {
 
 // Base Item Class (Optional but good for structure)
 class Item {
-    constructor(id, name, description, itemType, subType, stackable = true, maxStack = 99) {
+    constructor(id, name, description, itemType, subType, stackable = true, maxStack = 99, effect = null) { // Added effect parameter
         this.id = id; // Unique identifier for the item
         this.name = name;
         this.description = description;
@@ -30,6 +30,7 @@ class Item {
         this.subType = subType;   // e.g., ConsumableType.MEDKIT
         this.stackable = stackable;
         this.maxStack = stackable ? maxStack : 1;
+        this.effect = effect; // Store the effect (e.g., { health: 100 })
     }
 
     // Potential common methods for items can go here
@@ -43,8 +44,9 @@ class Item {
 const itemsDatabase = new Map();
 
 // --- Consumables ---
-itemsDatabase.set('MED001', new Item('MED001', 'Small Medkit', 'Restores a small amount of health.', ItemType.CONSUMABLE, ConsumableType.MEDKIT, true, 10));
-itemsDatabase.set('MED002', new Item('MED002', 'Bandages', 'Stops bleeding and restores minor health.', ItemType.CONSUMABLE, ConsumableType.MEDKIT, true, 15));
+// Updated MED001 and MED002 with specific HP values and names
+itemsDatabase.set('MED001', new Item('MED001', 'Standard Medkit', 'Replenishes 100 HP.', ItemType.CONSUMABLE, ConsumableType.MEDKIT, true, 10, { health: 100 }));
+itemsDatabase.set('MED002', new Item('MED002', 'Large Medkit', 'Replenishes 500 HP.', ItemType.CONSUMABLE, ConsumableType.MEDKIT, true, 5, { health: 500 })); // Lowered stack size for large medkit
 itemsDatabase.set('FOOD001', new Item('FOOD001', 'Canned Beans', 'Provides basic sustenance.', ItemType.CONSUMABLE, ConsumableType.FOOD, true, 20));
 itemsDatabase.set('FOOD002', new Item('FOOD002', 'Energy Bar', 'Quick energy boost.', ItemType.CONSUMABLE, ConsumableType.FOOD, true, 15));
 itemsDatabase.set('DRUG001', new Item('DRUG001', 'Adrenaline Shot', 'Temporarily boosts speed.', ItemType.CONSUMABLE, ConsumableType.DRUG, true, 5));

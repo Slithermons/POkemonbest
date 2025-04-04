@@ -16,7 +16,8 @@ let currentUserOrganization = null; // Variable to store the user's current orga
 let currentOrganizationBaseLocation = null; // Store the LatLon of the joined org's base { lat: number, lon: number }
 
 // --- Player State ---
-let playerHealth = 100; // Example player health
+let playerCurrentHp = 100; // Current health points
+let playerMaxHp = 100;     // Maximum health points
 let playerInventory = []; // Array to hold item/weapon objects possessed by the player [{ id: string, quantity?: number, ammo?: number }]
 let currentPlayerId = 'player123'; // Example unique player ID
 let playerUsername = ''; // Variable for username
@@ -36,14 +37,20 @@ let playerPower = 0; // Calculated from stats
 let playerCharacterStats = { // Calculated from base stats and equipment
     defence: 0,
     evasionRate: 0,
-    criticalRate: 0
+    criticalRate: 0,
+    maxHp: 0 // Added derived max HP here for consistency
 };
-let playerEquipment = { // Example structure - will be populated from equipment.js/modal logic
-    head: null,
-    body: null,
-    legs: null,
-    weapon: null,
-    accessory: null
+// Updated playerEquipment structure to match EquipmentType and HTML slots
+let playerEquipment = {
+    Head: null,
+    Mask: null,
+    Body: null,
+    Gloves: null,
+    Pants: null,
+    Boots: null,
+    Accessory: null,
+    Charm: null,
+    Weapon: null
 };
 
 // --- Constants ---
@@ -112,15 +119,38 @@ function calculatePlayerPower() {
     console.log("Calculated Player Power:", playerPower);
 }
 
+// Function to calculate Max HP based on Vitality
+function calculateMaxHp() {
+    // Base HP + Bonus from Vitality + Bonus from Equipment (if any)
+    // Example: Base 100, +10 HP per Vitality point
+    let equipmentHpBonus = 0;
+    // TODO: Iterate through equipment if any items grant Max HP bonus
+    // for (const slot in playerEquipment) { ... }
+
+    playerMaxHp = 100 + (playerStats.vitality * 10) + equipmentHpBonus;
+    playerCharacterStats.maxHp = playerMaxHp; // Store in derived stats too
+
+    // Ensure current HP doesn't exceed new max HP
+    playerCurrentHp = Math.min(playerCurrentHp, playerMaxHp);
+
+    console.log(`Calculated Max HP: ${playerMaxHp}, Current HP adjusted to: ${playerCurrentHp}`);
+    // UI update will be handled separately
+}
+
+
 // Function to calculate derived character stats
 function calculateCharacterStats() {
+    // Calculate Max HP first as it might depend on base stats/equipment
+    calculateMaxHp();
+
     // Get total stats from equipment
     let totalEquipmentDefence = 0;
     let totalEquipmentEvasion = 0;
     let totalEquipmentHitRate = 0; // Equipment contributes HitRate to the Character's CriticalRate
+    let totalEquipmentCriticalRate = 0; // Direct critical rate bonus from equipment
 
-    // Iterate through equipped item IDs
-    for (const slot in playerEquipment) {
+    // Iterate through equipped item IDs using the updated keys
+    for (const slot in playerEquipment) { // Iterates over 'Head', 'Mask', 'Body', etc.
         const itemId = playerEquipment[slot]; // Get the ID of the item in the slot
         if (itemId) {
             // Fetch the full equipment object from the database (assuming equipment.js is loaded)
@@ -133,10 +163,10 @@ function calculateCharacterStats() {
             if (equipmentItem && equipmentItem.stats) {
                 totalEquipmentDefence += equipmentItem.stats.defence || 0;
                 totalEquipmentEvasion += equipmentItem.stats.evasionRate || 0;
-                // Per requirement: Equipment HitRate adds to Character Critical Rate
+                // Equipment HitRate adds to Character Critical Rate base
                 totalEquipmentHitRate += equipmentItem.stats.hitRate || 0;
-                // Also add direct criticalRate bonus from equipment if it exists
-                totalEquipmentHitRate += equipmentItem.stats.criticalRate || 0;
+                // Accumulate direct criticalRate bonus separately
+                totalEquipmentCriticalRate += equipmentItem.stats.criticalRate || 0;
             }
         }
     }
@@ -144,15 +174,63 @@ function calculateCharacterStats() {
     // Calculate derived stats
     playerCharacterStats.defence = (playerStats.vitality * 2) + totalEquipmentDefence;
     playerCharacterStats.evasionRate = (playerStats.agility / 2) + totalEquipmentEvasion;
-    playerCharacterStats.criticalRate = playerStats.hitRate + totalEquipmentHitRate;
+    // Critical Rate = Base Hit Rate + Equipment Hit Rate Bonus + Equipment Direct Critical Rate Bonus
+    playerCharacterStats.criticalRate = playerStats.hitRate + totalEquipmentHitRate + totalEquipmentCriticalRate;
 
     console.log("Calculated Character Stats:", playerCharacterStats);
-    // TODO: Update UI if these stats are displayed (This will be in uiManager.js)
+    // UI update is handled in uiManager.js when the stats modal is opened
 }
 
 // Initial calculations (call these after equipment might be loaded/set)
 // calculatePlayerPower(); // Called in uiManager.js when stats modal opens
-// calculateCharacterStats(); // Called in uiManager.js when stats modal opens, and before battle
+// calculateCharacterStats(); // Called in uiManager.js when stats modal opens, and before battle. Also called when equipment changes.
+
+// --- HP Management ---
+function healPlayer(amount) {
+    if (amount <= 0) return;
+    playerCurrentHp = Math.min(playerCurrentHp + amount, playerMaxHp);
+    console.log(`Player healed by ${amount}. Current HP: ${playerCurrentHp}/${playerMaxHp}`);
+    updateHpUI(); // Update UI immediately (function to be added in uiManager.js)
+}
+
+function damagePlayer(amount) {
+    if (amount <= 0) return;
+    playerCurrentHp = Math.max(playerCurrentHp - amount, 0);
+    console.log(`Player damaged by ${amount}. Current HP: ${playerCurrentHp}/${playerMaxHp}`);
+    updateHpUI(); // Update UI immediately (function to be added in uiManager.js)
+    // TODO: Add logic for player death if HP reaches 0
+}
+
+// --- HP Regeneration ---
+let hpRegenInterval = null;
+const HP_REGEN_AMOUNT = 5;
+const HP_REGEN_INTERVAL_MS = 60 * 1000; // 1 minute
+
+function startHpRegeneration() {
+    if (hpRegenInterval) {
+        clearInterval(hpRegenInterval); // Clear existing interval if any
+    }
+    console.log(`Starting HP regeneration: ${HP_REGEN_AMOUNT} HP every ${HP_REGEN_INTERVAL_MS / 1000} seconds.`);
+    hpRegenInterval = setInterval(() => {
+        if (playerCurrentHp < playerMaxHp) {
+            healPlayer(HP_REGEN_AMOUNT);
+            // healPlayer already logs and updates UI
+            // console.log(`HP regenerated. Current: ${playerCurrentHp}/${playerMaxHp}`);
+        } else {
+            // Optional: log that HP is full
+            // console.log("HP is full, no regeneration needed.");
+        }
+    }, HP_REGEN_INTERVAL_MS);
+}
+
+function stopHpRegeneration() {
+     if (hpRegenInterval) {
+        clearInterval(hpRegenInterval);
+        hpRegenInterval = null;
+        console.log("Stopped HP regeneration.");
+    }
+}
+
 
 // --- Inventory Management ---
 
@@ -194,6 +272,87 @@ function addItemToInventory(itemId, quantity = 1) {
     // Log added item, but UI update will be handled by the calling context (e.g., shop buy handler)
     console.log(`Added ${quantity}x ${itemDefinition.name} to inventory data.`);
     // updateInventoryUI(); // REMOVED: Let the calling function handle the UI update
+}
+
+// Function to remove an item from inventory (by ID, removes one quantity)
+function removeItemFromInventory(itemId, quantity = 1) {
+    const itemIndex = playerInventory.findIndex(entry => entry.id === itemId);
+
+    if (itemIndex > -1) {
+        if (playerInventory[itemIndex].quantity > quantity) {
+            playerInventory[itemIndex].quantity -= quantity;
+        } else {
+            playerInventory.splice(itemIndex, 1); // Remove the item entry completely
+        }
+        console.log(`Removed ${quantity}x ${itemId} from inventory.`);
+        updateInventoryUI(); // Update the inventory modal UI immediately
+        return true; // Indicate success
+    } else {
+        console.warn(`Attempted to remove item not found in inventory: ${itemId}`);
+        return false; // Indicate failure
+    }
+}
+
+// Function to handle using an item from inventory
+function useItem(itemId) {
+    const itemDefinition = getItemById(itemId); // getItemById is in items.js
+    if (!itemDefinition) {
+        console.error(`Attempted to use unknown item: ${itemId}`);
+        showCustomAlert("Unknown item!"); // Use alert from uiManager.js
+        return;
+    }
+
+    // Check if player actually has the item
+    const inventoryEntry = playerInventory.find(entry => entry.id === itemId);
+    if (!inventoryEntry) {
+        console.error(`Attempted to use item not in inventory: ${itemId}`);
+        showCustomAlert("You don't have that item!");
+        return;
+    }
+
+    console.log(`Attempting to use item: ${itemDefinition.name}`);
+
+    // Handle Consumables
+    if (itemDefinition.itemType === ItemType.CONSUMABLE) {
+        let used = false;
+        // Apply effect (e.g., healing)
+        if (itemDefinition.effect && itemDefinition.effect.health) {
+            if (playerCurrentHp < playerMaxHp) {
+                healPlayer(itemDefinition.effect.health); // healPlayer is in gameWorld.js
+                showCustomAlert(`Used ${itemDefinition.name}. Restored ${itemDefinition.effect.health} HP.`);
+                used = true;
+            } else {
+                showCustomAlert(`${itemDefinition.name} has no effect. HP is already full.`);
+                return; // Don't consume if no effect
+            }
+        }
+        // Add other consumable effects here (e.g., drugs, food)
+        // else if (itemDefinition.effect && itemDefinition.effect.boost) { ... }
+
+        // Remove item from inventory if used
+        if (used) {
+            removeItemFromInventory(itemId, 1);
+            // removeItemFromInventory already calls updateInventoryUI
+        }
+    }
+    // Handle Non-Consumables (Tools, Keys, etc.) - if needed
+    else if (itemDefinition.itemType === ItemType.NON_CONSUMABLE) {
+        // Example: Using a lockpick
+        if (itemDefinition.subType === NonConsumableType.UTILITY && itemId === 'UTIL001') {
+            showCustomAlert("Used Lockpick Set - Feature not implemented yet.");
+            // Potentially add durability or chance-based usage later
+        } else {
+            showCustomAlert(`${itemDefinition.name} cannot be used like this.`);
+        }
+    }
+    // Handle Equipment (usually equipped, not 'used' directly from inventory list)
+    else if (itemDefinition.itemType === ItemType.EQUIPMENT) {
+        showCustomAlert(`${itemDefinition.name} must be equipped, not used directly.`);
+        // TODO: Link to equipment screen or implement equip action
+    }
+    else {
+        showCustomAlert(`Cannot use ${itemDefinition.name} right now.`);
+    }
 }
 
 

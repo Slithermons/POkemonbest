@@ -53,6 +53,14 @@
             <span class="label">Cash:</span>
             <span class="value">$<span id="cash-amount">0</span></span>
         </div>
+        <!-- Add HP Bar Here -->
+        <div class="dashboard-section">
+            <span class="label">HP:</span>
+            <div class="hp-bar-container">
+                <div id="player-hp-bar" class="hp-bar"></div>
+            </div>
+            <span class="value"><span id="player-current-hp">100</span> / <span id="player-max-hp">100</span></span>
+        </div>
         <div class="dashboard-section">
             <span class="label">Organization:</span> <!-- Renamed label -->
             <span class="value" id="user-organization">None</span> <!-- Renamed ID -->
@@ -105,36 +113,45 @@
             <span class="close-btn" id="close-equipment-btn">&times;</span>
             <h2>Equipment</h2>
             <div class="equipment-layout">
-                <div class="character-preview">
-                    <!-- Optional: Character image or representation -->
-                    <p>[Character Preview]</p>
-                </div>
+                <!-- Character preview removed -->
                 <div class="equipment-slots">
-                    <div class="equipment-slot" data-slot-type="head">
+                    <div class="equipment-slot" data-slot-type="Head">
                         <span class="slot-label">Head</span>
                         <div class="slot-item"></div>
                     </div>
-                    <div class="equipment-slot" data-slot-type="chest">
-                        <span class="slot-label">Chest</span>
+                    <div class="equipment-slot" data-slot-type="Mask">
+                        <span class="slot-label">Mask</span>
                         <div class="slot-item"></div>
                     </div>
-                    <div class="equipment-slot" data-slot-type="legs">
-                        <span class="slot-label">Legs</span>
+                    <div class="equipment-slot" data-slot-type="Body">
+                        <span class="slot-label">Body</span>
                         <div class="slot-item"></div>
                     </div>
-                    <div class="equipment-slot" data-slot-type="feet">
-                        <span class="slot-label">Feet</span>
+                    <div class="equipment-slot" data-slot-type="Gloves">
+                        <span class="slot-label">Gloves</span>
                         <div class="slot-item"></div>
                     </div>
-                    <div class="equipment-slot" data-slot-type="weapon">
+                    <div class="equipment-slot" data-slot-type="Pants">
+                        <span class="slot-label">Pants</span>
+                        <div class="slot-item"></div>
+                    </div>
+                    <div class="equipment-slot" data-slot-type="Boots">
+                        <span class="slot-label">Boot</span> <!-- Label kept as Boot -->
+                        <div class="slot-item"></div>
+                    </div>
+                    <div class="equipment-slot" data-slot-type="Accessory">
+                        <span class="slot-label">Accessory</span>
+                        <div class="slot-item"></div>
+                    </div>
+                    <div class="equipment-slot" data-slot-type="Charm">
+                        <span class="slot-label">Charm</span>
+                        <div class="slot-item"></div>
+                    </div>
+                    <div class="equipment-slot" data-slot-type="Weapon">
                         <span class="slot-label">Weapon</span>
                         <div class="slot-item"></div>
                     </div>
-                    <div class="equipment-slot" data-slot-type="offhand">
-                        <span class="slot-label">Off-hand</span>
-                        <div class="slot-item"></div>
-                    </div>
-                    <!-- Add more slots as needed (e.g., rings, amulet) -->
+                    <!-- Offhand slot removed -->
                 </div>
             </div>
         </div>
