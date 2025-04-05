@@ -264,6 +264,13 @@ function prepareBaseItemsForShop() {
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM fully loaded. Initializing map and game...");
 
+    // --- Load Daily Limits ---
+    if (typeof loadDailyRemovalLimit === 'function') {
+        loadDailyRemovalLimit(); // Load protection removal limits from localStorage
+    } else {
+        console.error("loadDailyRemovalLimit function not found! Daily limits may not work correctly.");
+    }
+
     // --- Sound Toggle Listener ---
     const soundToggle = document.getElementById('sound-toggle');
     if (soundToggle) {

@@ -105,6 +105,7 @@
                 <button id="action-stats-btn" class="action-btn" title="Stats">📊</button> <!-- Placeholder Icon -->
                 <button id="action-equipment-btn" class="action-btn" title="Equipment">⚔️</button> <!-- Placeholder Icon -->
                 <button id="action-inventory-btn" class="action-btn" title="Inventory">🎒</button> <!-- Placeholder Icon -->
+                <button id="action-leaderboard-btn" class="action-btn" title="Leaderboard">🏆</button> <!-- Leaderboard Button -->
                 <button id="show-book-btn" class="action-btn" title="Show Protection Book">📖</button> <!-- Moved here, changed class -->
             </div>
         </div>
@@ -340,6 +341,30 @@
             <div id="battle-result" class="battle-result" style="display: none;">
                 <p id="battle-result-message"></p>
                 <button id="battle-close-btn" class="btn btn-brown">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div id="leaderboard-modal" class="modal modal-hidden">
+        <div class="modal-content leaderboard-modal-content"> <!-- Added specific class -->
+            <span class="close-btn" id="close-leaderboard-btn">&times;</span>
+            <h2>Leaderboard</h2>
+            <div class="leaderboard-tabs">
+                <button id="leaderboard-money-tab" class="tab-btn active-tab">Most Money</button>
+                <button id="leaderboard-power-tab" class="tab-btn">Most Power</button>
+            </div>
+            <div id="leaderboard-money-content" class="leaderboard-content active-content">
+                <ol id="leaderboard-money-list">
+                    <!-- Money leaderboard entries will be populated here -->
+                    <li>Loading...</li>
+                </ol>
+            </div>
+            <div id="leaderboard-power-content" class="leaderboard-content">
+                <ol id="leaderboard-power-list">
+                    <!-- Power leaderboard entries will be populated here -->
+                    <li>Loading...</li>
+                </ol>
             </div>
         </div>
     </div>

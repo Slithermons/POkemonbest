@@ -1075,6 +1075,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const shopBuyListElement = document.getElementById('shop-buy-list');
     const shopSellListElement = document.getElementById('shop-sell-list');
 
+    // --- Leaderboard Modal Elements ---
+    const leaderboardModal = document.getElementById('leaderboard-modal');
+    const closeLeaderboardBtn = document.getElementById('close-leaderboard-btn');
+    const actionLeaderboardBtn = document.getElementById('action-leaderboard-btn');
+    const moneyTabBtn = document.getElementById('leaderboard-money-tab');
+    const powerTabBtn = document.getElementById('leaderboard-power-tab');
+    const moneyContent = document.getElementById('leaderboard-money-content');
+    const powerContent = document.getElementById('leaderboard-power-content');
+    const moneyList = document.getElementById('leaderboard-money-list');
+    const powerList = document.getElementById('leaderboard-power-list');
+
 
     // --- Stats Info Modal Listeners (Get elements inside listener) ---
     const openStatsBtn = document.getElementById('open-stats-btn'); // Old button ID, might be null now
@@ -1400,7 +1411,105 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     } else {
-         console.error("How to Play modal element not found for background click listener.");
+        console.error("How to Play modal element not found for background click listener.");
+    }
+
+    // --- Leaderboard Modal Functions ---
+    function openLeaderboardModal() {
+        if (leaderboardModal) {
+            // TODO: Fetch actual leaderboard data here when backend is ready
+            // For now, just show loading state or dummy data
+            updateLeaderboardUI([], 'money'); // Clear/show loading
+            updateLeaderboardUI([], 'power'); // Clear/show loading
+            switchLeaderboardTab('money'); // Default to money tab
+            leaderboardModal.classList.remove('modal-hidden');
+            console.log("Leaderboard modal opened.");
+        } else {
+            console.error("Leaderboard modal element not found!");
+            showCustomAlert("Error: Leaderboard unavailable.");
+        }
+    }
+
+    function closeLeaderboardModal() {
+        if (leaderboardModal) {
+            leaderboardModal.classList.add('modal-hidden');
+            console.log("Leaderboard modal closed.");
+        }
+    }
+
+    function switchLeaderboardTab(tabType) {
+        if (!moneyTabBtn || !powerTabBtn || !moneyContent || !powerContent) return;
+
+        if (tabType === 'money') {
+            moneyTabBtn.classList.add('active-tab');
+            powerTabBtn.classList.remove('active-tab');
+            moneyContent.classList.add('active-content');
+            powerContent.classList.remove('active-content');
+        } else if (tabType === 'power') {
+            powerTabBtn.classList.add('active-tab');
+            moneyTabBtn.classList.remove('active-tab');
+            powerContent.classList.add('active-content');
+            moneyContent.classList.remove('active-content');
+        }
+        // TODO: Potentially fetch data specific to the selected tab here
+    }
+
+    // Placeholder function to update leaderboard list
+    function updateLeaderboardUI(data, type) {
+        const listElement = type === 'money' ? moneyList : powerList;
+        if (!listElement) return;
+
+        listElement.innerHTML = ''; // Clear previous entries
+
+        if (!data || data.length === 0) {
+            listElement.innerHTML = '<li>Loading...</li>'; // Or 'No data available'
+            return;
+        }
+
+        // Example: Assuming data is an array of { name: 'PlayerAlias', score: 1000 }
+        data.forEach((entry, index) => {
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `
+                <span>${index + 1}. <span class="player-name">${entry.name}</span></span>
+                <span class="player-score">${type === 'money' ? '$' : ''}${entry.score.toLocaleString()}</span>
+            `;
+            listElement.appendChild(listItem);
+        });
+    }
+
+    // --- Leaderboard Modal Listeners ---
+    if (actionLeaderboardBtn) {
+        actionLeaderboardBtn.addEventListener('click', openLeaderboardModal);
+    } else {
+        console.error("Leaderboard action button not found.");
+    }
+
+    if (closeLeaderboardBtn) {
+        closeLeaderboardBtn.addEventListener('click', closeLeaderboardModal);
+    } else {
+        console.error("Leaderboard close button not found.");
+    }
+
+    if (leaderboardModal) {
+        leaderboardModal.addEventListener('click', (event) => {
+            if (event.target === leaderboardModal) {
+                closeLeaderboardModal();
+            }
+        });
+    } else {
+        console.error("Leaderboard modal element not found for background click listener.");
+    }
+
+    if (moneyTabBtn) {
+        moneyTabBtn.addEventListener('click', () => switchLeaderboardTab('money'));
+    } else {
+        console.error("Leaderboard money tab button not found.");
+    }
+
+    if (powerTabBtn) {
+        powerTabBtn.addEventListener('click', () => switchLeaderboardTab('power'));
+    } else {
+        console.error("Leaderboard power tab button not found.");
     }
 
 

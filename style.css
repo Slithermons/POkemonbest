@@ -1142,7 +1142,7 @@ body {
     bottom: 0;
     left: 0;
     width: 100%;
-    height: 70px; /* Adjust height as needed */
+    height: 90px; /* Increased height for two rows */
     background-color: rgba(20, 20, 20, 0.9); /* Dark background */
     border-top: 1px solid #444;
     display: flex;
@@ -1190,8 +1190,11 @@ body {
 
 #action-buttons-bar {
     display: flex;
+    flex-wrap: wrap; /* Allow buttons to wrap to the next line */
+    justify-content: flex-end; /* Align buttons to the right */
     align-items: center;
-    gap: 15px; /* Space between buttons */
+    gap: 10px; /* Reduced space between buttons */
+    max-width: 150px; /* Limit width to encourage wrapping (adjust as needed based on number of buttons) */
 }
 
 .action-btn {
@@ -1199,12 +1202,12 @@ body {
     border: 2px solid #00bcd4; /* Cyan border like image */
     color: #e0e0e0;
     border-radius: 50%; /* Make it circular */
-    width: 45px; /* Adjust size */
-    height: 45px;
+    width: 35px; /* Reduced size */
+    height: 35px; /* Reduced size */
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 1.5em; /* Adjust icon size */
+    font-size: 1.2em; /* Reduced icon size */
     cursor: pointer;
     transition: background-color 0.2s ease, border-color 0.2s ease;
     padding: 0; /* Remove default padding */
@@ -1684,4 +1687,158 @@ body {
     border-color: #1565c0;
     color: #fff;
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+}
+
+/* --- Leaderboard Modal Styles --- */
+#leaderboard-modal {
+    /* Inherits general modal styles */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.75); /* Dark overlay */
+    z-index: 10001; /* Same level as other modals */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+#leaderboard-modal.modal-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+#leaderboard-modal .modal-content {
+    background-color: #2c2c2c; /* Dark background */
+    padding: 20px;
+    border-radius: 8px;
+    border: 2px solid #ffeb3b; /* Gold border for leaderboard */
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+    color: #e0e0e0;
+    width: 90%;
+    max-width: 500px; /* Adjust width as needed */
+    max-height: 85vh;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+#leaderboard-modal h2 {
+    margin-top: 0;
+    text-align: center;
+    color: #ffeb3b; /* Gold title */
+    border-bottom: 1px solid #555;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+    flex-shrink: 0;
+    font-family: 'Georgia', serif;
+}
+
+#leaderboard-modal .close-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 24px;
+    font-weight: bold;
+    color: #aaa;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+#leaderboard-modal .close-btn:hover {
+    color: #fff;
+}
+
+.leaderboard-tabs {
+    display: flex;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #555;
+}
+
+.tab-btn {
+    /* Inherits .btn styles potentially, but let's define specifically */
+    flex-grow: 1;
+    padding: 10px 15px;
+    background-color: #444;
+    border: none;
+    border-bottom: 3px solid transparent; /* For active indicator */
+    color: #ccc;
+    cursor: pointer;
+    font-size: 1em;
+    text-align: center;
+    transition: background-color 0.2s ease, color 0.2s ease, border-bottom-color 0.2s ease;
+    border-radius: 4px 4px 0 0; /* Rounded top corners */
+    margin-bottom: -1px; /* Overlap the container border */
+}
+
+.tab-btn:hover {
+    background-color: #555;
+    color: #fff;
+}
+
+.tab-btn.active-tab {
+    background-color: #3a3a3a; /* Slightly lighter active tab */
+    color: #ffeb3b; /* Gold active text */
+    border-bottom: 3px solid #ffeb3b; /* Gold underline */
+    font-weight: bold;
+}
+
+.leaderboard-content {
+    display: none; /* Hide content by default */
+    background-color: #3a3a3a; /* Match active tab background */
+    padding: 15px;
+    border-radius: 0 0 5px 5px; /* Rounded bottom corners */
+    overflow-y: auto; /* Allow scrolling */
+    flex-grow: 1; /* Take remaining space */
+    max-height: 60vh; /* Limit height */
+}
+
+.leaderboard-content.active-content {
+    display: block; /* Show active content */
+}
+
+#leaderboard-money-list,
+#leaderboard-power-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#leaderboard-money-list li,
+#leaderboard-power-list li {
+    padding: 8px 5px;
+    border-bottom: 1px dotted #555;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.95em;
+}
+
+#leaderboard-money-list li:last-child,
+#leaderboard-power-list li:last-child {
+    border-bottom: none;
+}
+
+#leaderboard-money-list .player-name,
+#leaderboard-power-list .player-name {
+    font-weight: 500;
+    color: #e0e0e0;
+}
+
+#leaderboard-money-list .player-score,
+#leaderboard-power-list .player-score {
+    font-weight: bold;
+    color: #81c784; /* Green for scores/money */
+}
+
+/* Loading state */
+#leaderboard-money-list li:only-child,
+#leaderboard-power-list li:only-child {
+    font-style: italic;
+    color: #888;
+    text-align: center;
+    justify-content: center;
 }

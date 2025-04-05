@@ -28,6 +28,55 @@ let currentPlayerId = 'player123'; // Example unique player ID
 let playerUsername = ''; // Variable for username
 let playerAlias = ''; // Variable for alias
 
+// --- Daily Limits & Tracking ---
+const MAX_DAILY_PROTECTION_REMOVALS = 2;
+let protectionRemovalsToday = 0; // In-memory count for the current session
+let lastProtectionRemovalDate = ''; // YYYY-MM-DD format
+
+// Helper function to get current date as YYYY-MM-DD
+function getCurrentDateString() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+// Function to load daily removal limit data from localStorage
+function loadDailyRemovalLimit() {
+    const savedDate = localStorage.getItem('lastProtectionRemovalDate');
+    const savedCount = localStorage.getItem('protectionRemovalsToday');
+    const currentDate = getCurrentDateString();
+
+    if (savedDate === currentDate) {
+        lastProtectionRemovalDate = savedDate;
+        protectionRemovalsToday = parseInt(savedCount || '0', 10);
+    } else {
+        // It's a new day or no data saved yet
+        lastProtectionRemovalDate = currentDate; // Set to today
+        protectionRemovalsToday = 0; // Reset count
+        // Save the reset state immediately
+        saveDailyRemovalLimit();
+    }
+    console.log(`Loaded daily removal limit: ${protectionRemovalsToday} removals on ${lastProtectionRemovalDate}`);
+}
+
+// Function to save daily removal limit data to localStorage
+function saveDailyRemovalLimit() {
+    try {
+        localStorage.setItem('lastProtectionRemovalDate', lastProtectionRemovalDate);
+        localStorage.setItem('protectionRemovalsToday', protectionRemovalsToday.toString());
+        console.log(`Saved daily removal limit: ${protectionRemovalsToday} removals on ${lastProtectionRemovalDate}`);
+    } catch (e) {
+        console.error("Failed to save daily removal limit to localStorage:", e);
+        // Optionally alert the user if localStorage is unavailable/full
+        showCustomAlert("Warning: Could not save game progress (daily limits). Storage might be full or disabled.");
+    }
+}
+
+// NOTE: loadDailyRemovalLimit() needs to be called during game initialization.
+// This should ideally happen in initialization.js after the DOM is ready.
+
 // --- Player Stats & Level ---
 let playerLevel = 1;
 let playerExperience = 0;
@@ -1292,9 +1341,10 @@ function collectProfit(businessId) {
         showCustomAlert("Cannot determine your location."); // Use custom alert (defined in uiManager.js)
         return;
     }
-     if (!currentUserOrganization || !businessInfo.isControlled) {
-         showCustomAlert("This business is not under your organization's control."); // Use custom alert (defined in uiManager.js)
-         return;
+    // Check if the business is protected by the player's organization
+    if (!currentUserOrganization || !businessInfo.protectingOrganization || businessInfo.protectingOrganization.abbreviation !== currentUserOrganization.abbreviation) {
+        showCustomAlert("This business is not protected by your organization."); // Updated message
+        return;
     }
 
     const distanceToBusiness = calculateDistance(currentUserLocation.lat, currentUserLocation.lon, businessInfo.lat, businessInfo.lon);
@@ -1320,6 +1370,15 @@ function collectProfit(businessId) {
 
 // Function to remove player's protection from a business
 function removePlayerProtection(businessId) {
+    // --- Daily Limit Check ---
+    loadDailyRemovalLimit(); // Ensure count/date are current for this session/day
+
+    if (protectionRemovalsToday >= MAX_DAILY_PROTECTION_REMOVALS) {
+        showCustomAlert(`You have already removed protection ${MAX_DAILY_PROTECTION_REMOVALS} times today. Please try again tomorrow.`);
+        return; // Stop execution if limit reached
+    }
+    // --- End Daily Limit Check ---
+
     const businessInfo = businessesCache[businessId];
     if (!businessInfo) {
         console.error(`Cannot remove protection: Business ${businessId} not found in cache.`);
@@ -1344,6 +1403,13 @@ function removePlayerProtection(businessId) {
     // Remove the player
     const removedUser = businessInfo.protectingUsers.splice(playerIndex, 1)[0];
     console.log(`Removed player ${removedUser.userId} (Power: ${removedUser.userPower}) from protecting ${businessInfo.name}`);
+
+    // --- Increment and Save Daily Limit ---
+    protectionRemovalsToday++;
+    lastProtectionRemovalDate = getCurrentDateString(); // Ensure date is current
+    saveDailyRemovalLimit();
+    console.log(`Protection removal count for today: ${protectionRemovalsToday}/${MAX_DAILY_PROTECTION_REMOVALS}`);
+    // --- End Increment and Save ---
 
     // Recalculate protection power
     businessInfo.protectionPower = businessInfo.protectingUsers.reduce((sum, user) => sum + user.userPower, 0);
