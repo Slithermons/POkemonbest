@@ -1415,15 +1415,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Leaderboard Modal Functions ---
-    function openLeaderboardModal() {
+    async function openLeaderboardModal() { // Make async
         if (leaderboardModal) {
-            // TODO: Fetch actual leaderboard data here when backend is ready
-            // For now, just show loading state or dummy data
-            updateLeaderboardUI([], 'money'); // Clear/show loading
-            updateLeaderboardUI([], 'power'); // Clear/show loading
-            switchLeaderboardTab('money'); // Default to money tab
+            // Fetch data when opening
+            updateLeaderboardUI([], 'money'); // Show loading initially
+            updateLeaderboardUI([], 'power'); // Show loading initially
             leaderboardModal.classList.remove('modal-hidden');
-            console.log("Leaderboard modal opened.");
+            console.log("Leaderboard modal opened. Fetching data...");
+
+            // Fetch both leaderboards
+            if (typeof SaveManager !== 'undefined' && SaveManager.fetchLeaderboard) {
+                const moneyResult = await SaveManager.fetchLeaderboard('money');
+                if (moneyResult.error) {
+                    console.error("Error fetching money leaderboard:", moneyResult.error);
+                    updateLeaderboardUI(null, 'money', 'Error loading data.'); // Show error
+                } else {
+                    updateLeaderboardUI(moneyResult.data, 'money');
+                }
+
+                const powerResult = await SaveManager.fetchLeaderboard('power');
+                 if (powerResult.error) {
+                    console.error("Error fetching power leaderboard:", powerResult.error);
+                    updateLeaderboardUI(null, 'power', 'Error loading data.'); // Show error
+                } else {
+                    updateLeaderboardUI(powerResult.data, 'power');
+                }
+            } else {
+                console.error("SaveManager.fetchLeaderboard not available!");
+                updateLeaderboardUI(null, 'money', 'Error: Fetch function missing.');
+                updateLeaderboardUI(null, 'power', 'Error: Fetch function missing.');
+            }
+
+            switchLeaderboardTab('money'); // Default to money tab after fetching
+
         } else {
             console.error("Leaderboard modal element not found!");
             showCustomAlert("Error: Leaderboard unavailable.");
@@ -1437,9 +1461,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function switchLeaderboardTab(tabType) {
+    async function switchLeaderboardTab(tabType) { // Make async
         if (!moneyTabBtn || !powerTabBtn || !moneyContent || !powerContent) return;
 
+        // Update tab/content visibility immediately
         if (tabType === 'money') {
             moneyTabBtn.classList.add('active-tab');
             powerTabBtn.classList.remove('active-tab');
@@ -1451,27 +1476,48 @@ document.addEventListener('DOMContentLoaded', () => {
             powerContent.classList.add('active-content');
             moneyContent.classList.remove('active-content');
         }
-        // TODO: Potentially fetch data specific to the selected tab here
+
+        // Fetch data for the selected tab if needed (or rely on initial fetch in openLeaderboardModal)
+        // Optional: Re-fetch on tab switch if data might be stale
+        // console.log(`Switched to ${tabType} tab. Optionally re-fetching...`);
+        // if (typeof SaveManager !== 'undefined' && SaveManager.fetchLeaderboard) {
+        //     updateLeaderboardUI(null, tabType, 'Loading...'); // Show loading
+        //     const result = await SaveManager.fetchLeaderboard(tabType);
+        //     if (result.error) {
+        //         console.error(`Error fetching ${tabType} leaderboard on switch:`, result.error);
+        //         updateLeaderboardUI(null, tabType, 'Error loading data.');
+        //     } else {
+        //         updateLeaderboardUI(result.data, tabType);
+        //     }
+        // }
     }
 
-    // Placeholder function to update leaderboard list
-    function updateLeaderboardUI(data, type) {
+    // Updated function to handle data structure and loading/error states
+    function updateLeaderboardUI(data, type, message = null) {
         const listElement = type === 'money' ? moneyList : powerList;
         if (!listElement) return;
 
         listElement.innerHTML = ''; // Clear previous entries
 
-        if (!data || data.length === 0) {
-            listElement.innerHTML = '<li>Loading...</li>'; // Or 'No data available'
+        if (message) {
+            listElement.innerHTML = `<li>${message}</li>`; // Show loading/error message
             return;
         }
 
-        // Example: Assuming data is an array of { name: 'PlayerAlias', score: 1000 }
+        if (!data || data.length === 0) {
+            listElement.innerHTML = '<li>No data available.</li>';
+            return;
+        }
+
+        // Data structure from fetchLeaderboard: { username, level, money, power }
         data.forEach((entry, index) => {
             const listItem = document.createElement('li');
+            const score = type === 'money' ? entry.money : entry.power;
+            const playerName = entry.username || `User #${index + 1}`; // Fallback name
+
             listItem.innerHTML = `
-                <span>${index + 1}. <span class="player-name">${entry.name}</span></span>
-                <span class="player-score">${type === 'money' ? '$' : ''}${entry.score.toLocaleString()}</span>
+                <span>${index + 1}. <span class="player-name">${playerName}</span> (Lvl ${entry.level || '?'})</span>
+                <span class="player-score">${type === 'money' ? '$' : ''}${score !== null && score !== undefined ? score.toLocaleString() : 'N/A'}</span>
             `;
             listElement.appendChild(listItem);
         });

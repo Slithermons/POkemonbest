@@ -118,6 +118,9 @@
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
 
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <!-- Game Scripts -->
     <script src="items.js"></script>       <!-- Item definitions -->
     <script src="equipment.js"></script>   <!-- Equipment definitions and logic -->
@@ -127,10 +130,11 @@
     <script src="gameWorld.js"></script>   <!-- Core game state, data, logic (depends on map) -->
     <script src="uiManager.js"></script>   <!-- UI updates, DOM manipulation, event listeners (depends on map, gameWorld) -->
     <script src="battle.js"></script>      <!-- Battle simulation logic (depends on gameWorld, uiManager) -->
+    <script src="saveGame.js"></script>      <!-- Local save and Supabase sync logic -->
 
     <!-- SUI Integration Removed -->
 
-    <script src="initialization.js"></script> <!-- Loading, map init, game start (needs Shop, gameWorld, uiManager) -->
+    <script src="initialization.js"></script> <!-- Loading, map init, game start (needs Shop, gameWorld, uiManager, SaveManager) -->
 
 
     <!-- Equipment Modal -->

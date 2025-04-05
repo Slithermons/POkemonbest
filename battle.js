@@ -604,6 +604,14 @@ function endBattle(playerWon) {
         battleResultMessage.classList.add(messageClass);
     }
     if (battleResultDiv) battleResultDiv.style.display = 'block';
+
+    // --- Save Game State After Battle ---
+    if (typeof SaveManager !== 'undefined' && SaveManager.saveGame && typeof gatherCurrentGameState === 'function') {
+        console.log("Saving game state after battle conclusion.");
+        SaveManager.saveGame(gatherCurrentGameState());
+    } else {
+        console.error("Could not save game after battle: SaveManager or gatherCurrentGameState not found.");
+    }
 }
 
 // --- Event Listeners (Attached after DOM is loaded) ---

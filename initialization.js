@@ -264,6 +264,13 @@ function prepareBaseItemsForShop() {
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM fully loaded. Initializing map and game...");
 
+    // --- Initialize Supabase ---
+    if (typeof SaveManager !== 'undefined' && typeof SaveManager.initializeSupabase === 'function') {
+        SaveManager.initializeSupabase();
+    } else {
+        console.error("SaveManager or initializeSupabase not found! Supabase integration might fail.");
+    }
+
     // --- Load Daily Limits ---
     if (typeof loadDailyRemovalLimit === 'function') {
         loadDailyRemovalLimit(); // Load protection removal limits from localStorage
@@ -276,23 +283,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (soundToggle) {
         // Initial state is set in audioPreloadPromise.finally
         soundToggle.addEventListener('change', () => {
-            isSoundEnabled = soundToggle.checked;
-            console.log(`Sound toggled: ${isSoundEnabled}`);
-            if (isSoundEnabled) {
-                // Directly attempt playback when toggled ON.
-                // playBgm() handles checks for audio readiness and errors.
-                playBgm();
-            } else {
-                stopBgm();
-                // Stop battle sounds
-                battleSounds.forEach(sound => {
-                    if (!sound.paused) {
-                        sound.pause();
-                        sound.currentTime = 0;
-                    }
-                });
-            }
-        });
+        isSoundEnabled = soundToggle.checked;
+        // Apply loaded sound setting later in initializeGame
+        // console.log(`Sound toggled: ${isSoundEnabled}`);
+        // if (isSoundEnabled) {
+        //     playBgm();
+        // } else {
+        //     stopBgm();
+        //     battleSounds.forEach(sound => {
+        //         if (!sound.paused) {
+        //             sound.pause();
+        //             sound.currentTime = 0;
+        //         }
+        //     });
+        // }
+    });
     } else { console.warn("Sound toggle checkbox not found!"); }
 
     // --- Initialize Map Object ---
@@ -342,8 +347,47 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Define the main game initialization function ---
     async function initializeGame() {
         console.log("Running initializeGame...");
-        let initialLat = 51.505, initialLon = -0.09;
+
+        // --- Load Game State ---
+        let loadedGameState = null;
+        if (typeof SaveManager !== 'undefined' && typeof SaveManager.loadGame === 'function') {
+            loadedGameState = await SaveManager.loadGame(); // Load local or default
+            // Apply loaded state to the global gameState (assuming it exists in gameWorld.js)
+            if (typeof gameState !== 'undefined' && loadedGameState) {
+                 Object.assign(gameState, loadedGameState); // Merge loaded state into global state
+                 console.log("Loaded game state applied:", gameState);
+            } else if (!loadedGameState) {
+                 console.error("Failed to load game state from SaveManager.");
+                 // Proceed with default state potentially already in gameState
+            } else {
+                 console.warn("Global gameState object not found. Loaded state not applied globally.");
+            }
+        } else {
+            console.error("SaveManager or loadGame not found! Cannot load saved data.");
+            // Rely on default state defined elsewhere (e.g., gameWorld.js)
+        }
+
+        // Use loaded state or defaults
+        const currentPlayerState = (typeof gameState !== 'undefined' && gameState.player) ? gameState.player : getDefaultGameState().player; // Fallback needed if gameState isn't defined globally
+        const currentSettings = (typeof gameState !== 'undefined' && gameState.settings) ? gameState.settings : getDefaultGameState().settings;
+
+        let initialLat = 51.505, initialLon = -0.09; // Default location
         let locationPermissionGranted = false;
+
+        // --- Apply Loaded Settings ---
+        isSoundEnabled = currentSettings.soundOn;
+        const soundToggle = document.getElementById('sound-toggle');
+        if (soundToggle) soundToggle.checked = isSoundEnabled;
+        console.log(`Initial sound state set from loaded/default: ${isSoundEnabled}`);
+        // Attempt BGM play based on loaded state AFTER audio assets are ready
+        audioPreloadPromise.finally(() => {
+            if (isSoundEnabled) {
+                playBgm();
+            } else {
+                stopBgm();
+            }
+        });
+
 
         // --- Location Fetching ---
         if (navigator.geolocation && navigator.permissions) {
@@ -386,6 +430,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         userMarker.openPopup();
         console.log("Player marker created/updated.");
+
+        // --- Apply Loaded Player State to UI/Game ---
+        // (Requires uiManager.js and gameWorld.js to be loaded)
+        if (typeof updatePlayerUI === 'function') {
+            updatePlayerUI(currentPlayerState); // Update dashboard, HP bar, etc.
+        } else { console.warn("updatePlayerUI function not found."); }
+
+        if (typeof updateInventoryUI === 'function') {
+            updateInventoryUI(currentPlayerState.inventory); // Update inventory modal
+        } else { console.warn("updateInventoryUI function not found."); }
+
+        if (typeof updateEquipmentUI === 'function') {
+            updateEquipmentUI(currentPlayerState.equipment); // Update equipment modal/slots
+        } else { console.warn("updateEquipmentUI function not found."); }
+
+        // Update other game logic variables if needed (e.g., in gameWorld.js)
+        // Example: if (typeof gameWorld !== 'undefined') gameWorld.player = currentPlayerState;
+
 
         // --- Prepare Shop Items ---
         prepareBaseItemsForShop();

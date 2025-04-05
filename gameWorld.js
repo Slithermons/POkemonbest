@@ -24,12 +24,15 @@ let currentOrganizationBaseLocation = null; // Store the LatLon of the joined or
 let playerCurrentHp = 100; // Current health points
 let playerMaxHp = 100;     // Maximum health points
 let playerInventory = []; // Array to hold item/weapon objects possessed by the player [{ id: string, quantity?: number, ammo?: number }]
-// Removed duplicate declaration: let currentPlayerId = 'player123';
 let playerUsername = ''; // Variable for username
 let playerAlias = ''; // Variable for alias - May become secondary if wallet is primary ID
 
 // --- Player ID Management ---
-let currentPlayerId = null; // Start as null, will be set by wallet or localStorage fallback
+let currentPlayerId = null; // Start as null, will be set by wallet or SaveManager.loadGame
+
+// --- Game State Object (Placeholder, state primarily managed via globals for now) ---
+// The SaveManager.saveGame function will gather state from globals via gatherCurrentGameState()
+let gameState = {}; // This will be populated by initialization.js using SaveManager.loadGame
 
 // --- Daily Limits & Tracking ---
 const MAX_DAILY_PROTECTION_REMOVALS = 2;
@@ -79,160 +82,79 @@ function saveDailyRemovalLimit() {
 
 // NOTE: loadDailyRemovalLimit() needs to be called during game initialization.
 
-// --- Player State Persistence (using localStorage) ---
+// --- Player State Persistence (REMOVED - Handled by SaveManager) ---
+// Removed savePlayerState, loadPlayerState, getPlayerStateKey functions
 
-function getPlayerStateKey(playerId, key) {
-    if (!playerId) return null; // Cannot save/load without an ID
-    return `player_${playerId}_${key}`;
-}
-
-function savePlayerState(playerId) {
-    if (!playerId) {
-        console.warn("Cannot save player state: No playerId provided.");
-        return;
-    }
-    console.log(`Saving state for player ID: ${playerId}`);
-
+// --- Gather Game State for Saving ---
+// Helper function to collect current game state from global variables
+function gatherCurrentGameState() {
     // --- Gather Protected Business IDs ---
     const protectedBusinessIds = [];
     for (const businessId in businessesCache) {
         const biz = businessesCache[businessId];
-        if (biz.protectingUsers && biz.protectingUsers.some(user => user.userId === playerId)) {
+        if (biz.protectingUsers && biz.protectingUsers.some(user => user.userId === currentPlayerId)) {
             protectedBusinessIds.push(businessId);
         }
     }
-    console.log(`Saving ${protectedBusinessIds.length} protected business IDs.`);
 
-    try {
-        localStorage.setItem(getPlayerStateKey(playerId, 'level'), playerLevel.toString());
-        localStorage.setItem(getPlayerStateKey(playerId, 'experience'), playerExperience.toString());
-        localStorage.setItem(getPlayerStateKey(playerId, 'stats'), JSON.stringify(playerStats));
-        localStorage.setItem(getPlayerStateKey(playerId, 'inventory'), JSON.stringify(playerInventory));
-        localStorage.setItem(getPlayerStateKey(playerId, 'equipment'), JSON.stringify(playerEquipment));
-        localStorage.setItem(getPlayerStateKey(playerId, 'cash'), currentCash.toString());
-        localStorage.setItem(getPlayerStateKey(playerId, 'currentHp'), playerCurrentHp.toString());
-        // Max HP is calculated, no need to save directly, but save vitality which determines it.
-        localStorage.setItem(getPlayerStateKey(playerId, 'organization'), JSON.stringify(currentUserOrganization)); // Save org object
-        localStorage.setItem(getPlayerStateKey(playerId, 'orgBaseLocation'), JSON.stringify(currentOrganizationBaseLocation)); // Save org base location
-        localStorage.setItem(getPlayerStateKey(playerId, 'username'), playerUsername); // Still save username/alias if entered
-        localStorage.setItem(getPlayerStateKey(playerId, 'alias'), playerAlias);
-        localStorage.setItem(getPlayerStateKey(playerId, 'location'), JSON.stringify(currentUserLocation)); // Save current location
-        localStorage.setItem(getPlayerStateKey(playerId, 'protectedBusinesses'), JSON.stringify(protectedBusinessIds)); // Save protected business IDs
-
-        console.log(`State saved successfully for ${playerId}.`);
-    } catch (e) {
-        console.error(`Failed to save player state for ${playerId} to localStorage:`, e);
-        showCustomAlert("Warning: Could not save game progress. Storage might be full or disabled.");
-    }
-}
-
-function loadPlayerState(playerId) {
-    if (!playerId) {
-        console.warn("Cannot load player state: No playerId provided.");
-        return false;
-    }
-    console.log(`Attempting to load state for player ID: ${playerId}`);
-    try {
-        const savedLevel = localStorage.getItem(getPlayerStateKey(playerId, 'level'));
-        // Check if *any* data exists for this player ID before proceeding
-        if (savedLevel === null) {
-            console.log(`No saved state found for player ID: ${playerId}`);
-            return false; // Indicate no data found
+    // --- Prepare Serializable Business Cache State ---
+    const businessesToSave = {};
+    for (const businessId in businessesCache) {
+        const biz = businessesCache[businessId];
+        if ((biz.protectingUsers && biz.protectingUsers.length > 0) || biz.lastCollected > 0) {
+             businessesToSave[businessId] = {
+                id: biz.id,
+                lastCollected: biz.lastCollected,
+                protectingOrganization: biz.protectingOrganization,
+                protectionPower: biz.protectionPower,
+                protectingUsers: biz.protectingUsers || []
+            };
         }
-
-        // Load and parse data, providing defaults if parsing fails or data is missing
-        playerLevel = parseInt(savedLevel || '1', 10);
-        playerExperience = parseInt(localStorage.getItem(getPlayerStateKey(playerId, 'experience')) || '0', 10);
-        playerStats = JSON.parse(localStorage.getItem(getPlayerStateKey(playerId, 'stats')) || '{"influence": 10, "strength": 10, "agility": 10, "vitality": 10, "hitRate": 10}');
-        playerInventory = JSON.parse(localStorage.getItem(getPlayerStateKey(playerId, 'inventory')) || '[]');
-        playerEquipment = JSON.parse(localStorage.getItem(getPlayerStateKey(playerId, 'equipment')) || '{"Head": null, "Mask": null, "Body": null, "Gloves": null, "Pants": null, "Boots": null, "Accessory": null, "Charm": null, "Weapon": null}');
-        currentCash = parseInt(localStorage.getItem(getPlayerStateKey(playerId, 'cash')) || '0', 10);
-        // Max HP is calculated based on vitality, load current HP carefully
-        calculateMaxHp(); // Calculate max HP based on loaded vitality first
-        playerCurrentHp = parseInt(localStorage.getItem(getPlayerStateKey(playerId, 'currentHp')) || playerMaxHp.toString(), 10);
-        playerCurrentHp = Math.min(playerCurrentHp, playerMaxHp); // Ensure current HP doesn't exceed max
-
-        currentUserOrganization = JSON.parse(localStorage.getItem(getPlayerStateKey(playerId, 'organization')) || 'null');
-        currentOrganizationBaseLocation = JSON.parse(localStorage.getItem(getPlayerStateKey(playerId, 'orgBaseLocation')) || 'null');
-        playerUsername = localStorage.getItem(getPlayerStateKey(playerId, 'username')) || '';
-        playerAlias = localStorage.getItem(getPlayerStateKey(playerId, 'alias')) || '';
-        currentUserLocation = JSON.parse(localStorage.getItem(getPlayerStateKey(playerId, 'location')) || 'null'); // Load location
-        const loadedProtectedBusinessIds = JSON.parse(localStorage.getItem(getPlayerStateKey(playerId, 'protectedBusinesses')) || '[]'); // Load protected business IDs
-
-        // --- Re-apply Protection Status ---
-        // This needs to happen *after* businesses might have been loaded/cached elsewhere,
-        // or be robust enough to handle cache being populated later.
-        // For simplicity, we assume businessesCache might have some data already.
-        // We iterate through the loaded IDs and add the player back to the protectors list
-        // for those businesses IF they exist in the cache.
-        // NOTE: This doesn't fully restore the *entire* protection state of all businesses,
-        // only the current player's contribution based on the saved list.
-        console.log(`Attempting to re-apply protection for ${loadedProtectedBusinessIds.length} businesses...`);
-        loadedProtectedBusinessIds.forEach(businessId => {
-            const biz = businessesCache[businessId];
-            if (biz) {
-                // Ensure protectingUsers array exists
-                if (!biz.protectingUsers) {
-                    biz.protectingUsers = [];
-                }
-                // Avoid adding duplicate entries if loading happens multiple times or state is mixed
-                const alreadyProtecting = biz.protectingUsers.some(user => user.userId === playerId);
-                if (!alreadyProtecting) {
-                    // Add the player back - Use current playerPower, might need recalculation if stats changed
-                    calculatePlayerPower(); // Ensure power is current before adding
-                    biz.protectingUsers.push({ userId: playerId, userPower: playerPower });
-                    // Recalculate total power for the business
-                    biz.protectionPower = biz.protectingUsers.reduce((sum, user) => sum + user.userPower, 0);
-                    // Set the organization if it's not set or different (should match loaded org)
-                    if (!biz.protectingOrganization && currentUserOrganization) {
-                         biz.protectingOrganization = { ...currentUserOrganization };
-                    }
-                    console.log(`Re-applied protection for player ${playerId} to business ${businessId}`);
-                }
-            } else {
-                console.warn(`Saved protected business ID ${businessId} not found in current cache during load.`);
-            }
-        });
-        // It's crucial to update the UI/markers *after* loading is complete.
-        // This is handled by triggerUIUpdates() called later in the DOMContentLoaded listener.
-
-        // Ensure loaded data types are correct (e.g., numbers are numbers)
-        playerLevel = Number(playerLevel);
-        playerExperience = Number(playerExperience);
-        currentCash = Number(currentCash);
-        playerCurrentHp = Number(playerCurrentHp);
-        // TODO: Add validation for stats, inventory, equipment objects if needed
-
-        console.log(`State loaded successfully for ${playerId}. Level: ${playerLevel}, Cash: ${currentCash}`);
-        return true; // Indicate success
-    } catch (e) {
-        console.error(`Failed to load or parse player state for ${playerId} from localStorage:`, e);
-        showCustomAlert("Error loading saved game progress. Resetting to default state.");
-        initializeNewPlayerState(playerId); // Reset to default if loading fails critically
-        return false; // Indicate failure
     }
+
+    // Construct the state object matching SaveManager's expectations
+    const currentState = {
+        player: {
+            id: currentPlayerId, // Include player ID
+            username: playerUsername,
+            alias: playerAlias,
+            level: playerLevel,
+            cash: currentCash,
+            power: playerPower, // Calculated power
+            hp: playerCurrentHp,
+            maxHp: playerMaxHp, // Calculated max HP
+            inventory: playerInventory,
+            equipment: playerEquipment,
+            organization: currentUserOrganization,
+            orgBaseLocation: currentOrganizationBaseLocation, // Added org base location
+            experience: playerExperience,
+            expNeeded: calculateExpNeeded(playerLevel), // Calculated EXP needed
+            stats: playerStats, // Base stats
+            characterStats: playerCharacterStats, // Derived stats
+            location: currentUserLocation // Current location
+        },
+        businesses: businessesToSave, // Save relevant business state
+        protectedBusinessIds: protectedBusinessIds, // IDs of businesses player protects
+        settings: {
+            soundOn: typeof isSoundEnabled !== 'undefined' ? isSoundEnabled : true // Get sound setting
+        }
+        // Add other global state parts if needed
+    };
+    // console.log("Gathered game state:", JSON.stringify(currentState, null, 2)); // Debug log
+    return currentState;
 }
+// Make it globally accessible if needed elsewhere (e.g., for debugging)
+window.gatherCurrentGameState = gatherCurrentGameState;
+
 
 function initializeNewPlayerState(playerId) {
     console.log(`Initializing new player state for ID: ${playerId}`);
     currentPlayerId = playerId; // Set the ID
     playerLevel = 1;
     playerExperience = 0;
-    playerStats = {
-        influence: 10,
-    strength: 10,
-    agility: 10,
-    vitality: 10,
-        strength: 10,
-        agility: 10,
-        vitality: 10,
-        hitRate: 10
-    };
+    playerStats = { influence: 10, strength: 10, agility: 10, vitality: 10, hitRate: 10 };
     playerInventory = [];
-    playerEquipment = {
-        Head: null, Mask: null, Body: null, Gloves: null, Pants: null,
-        Boots: null, Accessory: null, Charm: null, Weapon: null
-    };
+    playerEquipment = { Head: null, Mask: null, Body: null, Gloves: null, Pants: null, Boots: null, Accessory: null, Charm: null, Weapon: null };
     currentCash = 100; // Start with some cash
     currentUserOrganization = null;
     currentOrganizationBaseLocation = null;
@@ -246,8 +168,12 @@ function initializeNewPlayerState(playerId) {
 
     console.log(`New player state initialized. HP: ${playerCurrentHp}/${playerMaxHp}, Cash: ${currentCash}`);
 
-    // Save this initial state immediately
-    savePlayerState(playerId);
+    // Save this initial state immediately using SaveManager
+    if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
+        SaveManager.saveGame(gatherCurrentGameState());
+    } else {
+        console.error("SaveManager not available during new player initialization!");
+    }
 }
 
 function resetLocalPlayerState() {
@@ -272,6 +198,7 @@ function resetLocalPlayerState() {
 
     // Trigger UI updates to reflect the reset state
     triggerUIUpdates();
+    // Do NOT save here, this is just resetting the local view
 }
 
 
@@ -503,6 +430,11 @@ function equipItem(itemId) {
     updateInventoryUI(); // Update inventory modal
     updateEquipmentUI(); // Update equipment modal (defined in uiManager.js)
     showCustomAlert(`Equipped ${itemToEquip.name}.`);
+
+    // Save game state after equipping
+    if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
+        SaveManager.saveGame(gatherCurrentGameState());
+    }
 }
 
 function unequipItem(slotType, triggerRecalculation = true) {
@@ -531,6 +463,11 @@ function unequipItem(slotType, triggerRecalculation = true) {
         updateInventoryUI(); // Update inventory modal
         updateEquipmentUI(); // Update equipment modal
         showCustomAlert(`Unequipped ${item ? item.name : 'item'}.`);
+
+        // Save game state after unequipping
+        if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
+            SaveManager.saveGame(gatherCurrentGameState());
+        }
     }
 }
 
@@ -568,8 +505,11 @@ function gainExperience(amount) {
     // If leveled up, recalculate stats as they might depend on level (though not currently implemented)
     if (leveledUp) {
         calculateCharacterStats(); // Recalculate derived stats like Max HP
-        // updateHpUI(); // calculateCharacterStats already calls this
-        // updateStatsModalUI(); // calculateCharacterStats already calls this
+    }
+
+    // Save game state after experience gain/level up
+    if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
+        SaveManager.saveGame(gatherCurrentGameState());
     }
 }
 
@@ -580,6 +520,10 @@ function healPlayer(amount) {
     playerCurrentHp = Math.min(playerCurrentHp + amount, playerMaxHp);
     console.log(`Player healed by ${amount}. Current HP: ${playerCurrentHp}/${playerMaxHp}`);
     updateHpUI(); // Update UI immediately (function defined in uiManager.js)
+    // Save game state after healing
+    if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
+        SaveManager.saveGame(gatherCurrentGameState());
+    }
 }
 
 function damagePlayer(amount) {
@@ -588,6 +532,11 @@ function damagePlayer(amount) {
     console.log(`Player damaged by ${amount}. Current HP: ${playerCurrentHp}/${playerMaxHp}`);
     updateHpUI(); // Update UI immediately (function defined in uiManager.js)
     // TODO: Add logic for player death if HP reaches 0
+
+    // Save game state after taking damage
+    if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
+        SaveManager.saveGame(gatherCurrentGameState());
+    }
 }
 
 // --- HP Regeneration ---
@@ -602,9 +551,7 @@ function startHpRegeneration() {
     console.log(`Starting HP regeneration: ${HP_REGEN_AMOUNT} HP every ${HP_REGEN_INTERVAL_MS / 1000} seconds.`);
     hpRegenInterval = setInterval(() => {
         if (playerCurrentHp < playerMaxHp) {
-            healPlayer(HP_REGEN_AMOUNT);
-            // healPlayer already logs and updates UI
-            // console.log(`HP regenerated. Current: ${playerCurrentHp}/${playerMaxHp}`);
+            healPlayer(HP_REGEN_AMOUNT); // healPlayer now handles saving
         } else {
             // Optional: log that HP is full
             // console.log("HP is full, no regeneration needed.");
@@ -655,6 +602,11 @@ function addItemToInventory(itemId, quantity = 1) {
     // Log added item, but UI update will be handled by the calling context (e.g., shop buy handler)
     console.log(`Added ${quantity}x ${itemDefinition.name} to inventory data.`);
     // updateInventoryUI(); // REMOVED: Let the calling function handle the UI update
+
+    // Save game state after adding item (caller might also save, but this ensures it)
+    if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
+        SaveManager.saveGame(gatherCurrentGameState());
+    }
 }
 
 // Function to remove an item from inventory (by ID, removes one quantity)
@@ -664,16 +616,36 @@ function removeItemFromInventory(itemId, quantity = 1) {
     if (itemIndex > -1) {
         const itemDefinition = itemsDatabase.get(itemId) || equipmentDatabase.get(itemId);
         const isStackable = itemDefinition ? (itemDefinition.stackable !== false) : false; // Assume not stackable if definition missing
+        let itemRemoved = false;
 
         if (isStackable && playerInventory[itemIndex].quantity > quantity) {
             playerInventory[itemIndex].quantity -= quantity;
-        } else {
-            // Remove the whole entry if not stackable or quantity drops to 0 or less
+            itemRemoved = true;
+        } else if (isStackable && playerInventory[itemIndex].quantity <= quantity) {
+             // Remove the whole entry if quantity drops to 0 or less
             playerInventory.splice(itemIndex, 1);
+            itemRemoved = true;
+        } else if (!isStackable) {
+             // Remove the whole entry if not stackable
+             playerInventory.splice(itemIndex, 1);
+             itemRemoved = true;
         }
-        console.log(`Removed ${quantity}x ${itemId} from inventory.`);
-        updateInventoryUI(); // Update the inventory modal UI immediately
-        return true; // Indicate success
+
+
+        if (itemRemoved) {
+            console.log(`Removed ${quantity}x ${itemId} from inventory.`);
+            updateInventoryUI(); // Update the inventory modal UI immediately
+
+            // Save game state after removing item
+            if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
+                SaveManager.saveGame(gatherCurrentGameState());
+            }
+            return true; // Indicate success
+        } else {
+             console.warn(`Could not remove ${quantity}x ${itemId}. Quantity issue?`);
+             return false;
+        }
+
     } else {
         console.warn(`Attempted to remove item not found in inventory: ${itemId}`);
         return false; // Indicate failure
@@ -688,7 +660,7 @@ function useItem(itemId) {
         const equipDefinition = getEquipmentById(itemId); // from equipment.js
         if (equipDefinition && equipDefinition.itemType === 'Equipment') {
             // If it's equipment, try to equip it instead of using it
-            equipItem(itemId); // Call the equip function
+            equipItem(itemId); // Call the equip function (equipItem handles saving)
             return; // Stop further execution in useItem
         }
         // If not found in either database
@@ -713,7 +685,7 @@ function useItem(itemId) {
         // Apply effect (e.g., healing)
         if (itemDefinition.effect && itemDefinition.effect.health) {
             if (playerCurrentHp < playerMaxHp) {
-                healPlayer(itemDefinition.effect.health); // healPlayer is in gameWorld.js
+                healPlayer(itemDefinition.effect.health); // healPlayer handles saving
                 showCustomAlert(`Used ${itemDefinition.name}. Restored ${itemDefinition.effect.health} HP.`);
                 used = true;
             } else {
@@ -726,7 +698,7 @@ function useItem(itemId) {
 
         // Remove item from inventory if used
         if (used) {
-            removeItemFromInventory(itemId, 1);
+            removeItemFromInventory(itemId, 1); // removeItemFromInventory handles saving
             // removeItemFromInventory already calls updateInventoryUI
         }
     }
@@ -739,7 +711,7 @@ function useItem(itemId) {
         } else {
             showCustomAlert(`${itemDefinition.name} cannot be used like this.`);
         }
-    }
+        }
     // Handle Equipment (should have been caught earlier, but as fallback)
     else if (itemDefinition.itemType === ItemType.EQUIPMENT) {
          showCustomAlert(`${itemDefinition.name} must be equipped, not used directly. Try equipping from the Equipment screen.`);
@@ -792,58 +764,9 @@ function updateMarkersVisibility(playerLat, playerLon) {
             if (distance > VISIBILITY_RADIUS_METERS) {
                 layer.removeLayer(marker); // Remove directly from the layer
                 removedCount++;
-    }
-});
-
-// --- Auto-Save and Save-on-Exit ---
-let autoSaveInterval = null;
-const AUTO_SAVE_INTERVAL_MS = 30 * 1000; // Save every 30 seconds
-
-function startAutoSave() {
-    if (autoSaveInterval) clearInterval(autoSaveInterval); // Clear existing interval if any
-
-    // Only start auto-save if we have a valid player ID
-    if (currentPlayerId) {
-        autoSaveInterval = setInterval(() => {
-            if (currentPlayerId) { // Double-check ID hasn't become null
-                savePlayerState(currentPlayerId);
-            } else {
-                console.warn("Auto-save interval running but currentPlayerId is null. Stopping.");
-                stopAutoSave();
             }
-        }, AUTO_SAVE_INTERVAL_MS);
-        console.log(`Auto-save started for player ${currentPlayerId} every ${AUTO_SAVE_INTERVAL_MS / 1000} seconds.`);
-    } else {
-        console.warn("Cannot start auto-save: currentPlayerId is null.");
-    }
-}
+        });
 
-function stopAutoSave() {
-    if (autoSaveInterval) {
-        clearInterval(autoSaveInterval);
-        autoSaveInterval = null;
-        console.log("Auto-save stopped.");
-    }
-}
-
-// Save when the window is about to be closed
-window.addEventListener('beforeunload', (event) => {
-    console.log("Window closing, attempting final save...");
-    if (currentPlayerId) {
-        savePlayerState(currentPlayerId);
-        console.log("Final save attempt complete.");
-    } else {
-        console.log("No current player ID, skipping final save.");
-    }
-    // Note: Complex async operations might not complete here. localStorage sync save is usually okay.
-});
-
-// Start auto-save after initial state is loaded/initialized
-document.addEventListener('DOMContentLoaded', () => {
-    // This ensures startAutoSave runs after the initial load/init logic above completes
-    // and currentPlayerId is definitely set (either loaded or newly initialized).
-    startAutoSave();
-});
         // --- Addition Phase ---
         // Iterate through the source cache/array for this type of item
         if (cache && latField && lonField) {
@@ -1011,7 +934,11 @@ function joinOrganizationManually(orgName, orgAbbr, baseLat, baseLon) {
         updateOrganizationUI(); // Call UI update (defined in uiManager.js)
         updateBusinessMarkers(); // Explicitly update business icons/popups (defined below)
         showCustomAlert(`You have joined the ${orgName}!`); // Use custom alert (defined in uiManager.js)
-        // TODO: Persist organization membership & base location
+
+        // Save game state after joining org
+        if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
+            SaveManager.saveGame(gatherCurrentGameState());
+        }
     } else {
          showCustomAlert(`You are too far away from this base to join ${orgName}! You need to be within ${MANUAL_JOIN_DISTANCE}m. (Distance: ${distance.toFixed(1)}m)`); // Use custom alert (defined in uiManager.js)
     }
@@ -1058,7 +985,11 @@ async function findAndJoinInitialOrganization(userLat, userLon) {
         updateOrganizationUI(); // Call UI update (defined in uiManager.js)
         updateBusinessMarkers(); // Explicitly update business icons/popups (defined below)
         showCustomAlert(`No organizations found within ${MANUAL_JOIN_DISTANCE}m. You have been automatically assigned to the closest one: ${closestBase.organizationName}.`); // Use custom alert (defined in uiManager.js)
-        // TODO: Persist organization membership & base location
+
+        // Save game state after auto-joining org
+        if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
+            SaveManager.saveGame(gatherCurrentGameState());
+        }
     } else if (baseWithinManualRangeExists) {
          console.log(`Bases found within ${MANUAL_JOIN_DISTANCE}m. User must join manually.`);
          updateOrganizationUI(); // Call UI update (defined in uiManager.js)
@@ -1082,7 +1013,11 @@ function leaveOrganization() {
     updateOrganizationUI(); // Call UI update (defined in uiManager.js)
     updateBusinessMarkers(); // Update business icons/popups (defined below)
     showCustomAlert(`You have left the ${orgName}.`); // Use custom alert (defined in uiManager.js)
-    // TODO: Clear persisted organization membership & base location
+
+    // Save game state after leaving org
+    if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
+        SaveManager.saveGame(gatherCurrentGameState());
+    }
 }
 
 // --- Cash Drop Logic ---
@@ -1104,21 +1039,29 @@ function collectCash(cashMarker, cashLat, cashLon) {
             console.warn("Tried to remove cash marker that wasn't on its layer.");
         }
 
-
+        let stateChanged = false;
         // Chance to get an item instead of cash
         if (Math.random() < ITEM_DROP_CHANCE) {
             // Give a random item (e.g., medkit for now)
             const droppedItemId = 'MED001'; // Example: always drop Standard Medkit
             const itemDef = getItemById(droppedItemId); // Get item details
-            addItemToInventory(droppedItemId); // Use the inventory function
+            addItemToInventory(droppedItemId); // addItemToInventory handles saving
             showCustomAlert(`You found a ${itemDef ? itemDef.name : droppedItemId}!`); // Use custom alert (defined in uiManager.js)
+            stateChanged = true; // Inventory changed
         } else {
             // Collect cash
             const amount = Math.floor(Math.random() * (cashDropData.maxAmount - cashDropData.minAmount + 1)) + cashDropData.minAmount;
             currentCash += amount;
             updateCashUI(currentCash); // Update UI (function defined in uiManager.js)
             showCustomAlert(`You collected $${amount}!`); // Use custom alert (defined in uiManager.js)
-            // TODO: Add transaction details to storage if needed
+            stateChanged = true; // Cash changed
+        }
+
+        // Save game state if cash/item was collected
+        if (stateChanged && typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
+             // Note: addItemToInventory already saves, so this might be redundant if item dropped
+             // But it ensures cash changes are saved.
+            SaveManager.saveGame(gatherCurrentGameState());
         }
     } else {
         // Too far away
@@ -1277,7 +1220,10 @@ function activateProtection(businessId) {
     updateSingleBusinessMarker(businessId); // Defined below
     updateProtectionBookUI(); // Refresh book list (defined in uiManager.js)
 
-    // TODO: Persist protection changes
+    // Save game state after activating protection
+    if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
+        SaveManager.saveGame(gatherCurrentGameState());
+    }
 }
 
 // Function to fetch nearby businesses (shops, restaurants, cafes)
@@ -1600,6 +1546,11 @@ function collectProfit(businessId) {
             // Update popup immediately to show $0 potential and refresh book
              updateSingleBusinessMarker(businessId); // Update the specific marker
              updateProtectionBookUI(); // Refresh book list (defined in uiManager.js)
+
+             // Save game state after collecting profit
+             if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
+                 SaveManager.saveGame(gatherCurrentGameState());
+             }
         } else {
             showCustomAlert(`${businessInfo.name} has no profit to collect currently.`); // Use custom alert (defined in uiManager.js)
         }
@@ -1666,7 +1617,11 @@ function removePlayerProtection(businessId) {
     // Update UI
     updateSingleBusinessMarker(businessId); // Update the marker popup
     updateProtectionBookUI(); // Refresh the protection book list
-    // TODO: Persist changes
+
+    // Save game state after removing protection
+    if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
+        SaveManager.saveGame(gatherCurrentGameState());
+    }
 }
 
 
@@ -1722,6 +1677,7 @@ function removeEnemyFromMap(enemyId) {
             }
         }
     }
+    // Note: Saving state after enemy removal might happen in the battle logic that calls this.
 }
 
 // Helper function to trigger all necessary UI updates after state changes
@@ -1737,43 +1693,100 @@ function triggerUIUpdates() {
     // Add other UI update calls as needed (e.g., stats modal if open)
 }
 
+// --- Function to Load and Merge Business Cache State ---
+// NOTE: This is called *during* DOMContentLoaded, but the actual merging might
+// happen *after* initial businesses are fetched asynchronously.
+let loadedBusinessState = null; // Temporary storage for loaded state
+
+function loadBusinessCacheState() {
+    console.log("Attempting to load saved business cache state...");
+    // Use SaveManager.loadGame() which handles loading from localStorage
+    // The loaded state is applied in initialization.js now.
+    // This function might still be useful if we need to load *only* business state separately later.
+    // For now, we rely on the full state load.
+    // const savedBusinessDataString = localStorage.getItem('businessesCache_save');
+    // if (!savedBusinessDataString) {
+    //     console.log("No saved business cache state found.");
+    //     loadedBusinessState = {}; // Ensure it's an empty object if nothing is loaded
+    //     return;
+    // }
+    // try {
+    //     loadedBusinessState = JSON.parse(savedBusinessDataString);
+    //     console.log(`Loaded ${Object.keys(loadedBusinessState).length} businesses' state into temporary storage.`);
+    // } catch (error) {
+    //     console.error("Error loading or parsing saved business cache state:", error);
+    //     loadedBusinessState = {}; // Reset on error
+    // }
+    console.log("Business state loading is now handled by SaveManager.loadGame in initialization.js");
+}
+
+// Function to apply the loaded business state to the runtime cache
+// This should be called *after* initial businesses are fetched/displayed.
+function applyLoadedBusinessState() {
+    // This function is called from initialization.js after initial business fetch/display
+    // It merges the business state loaded by SaveManager.loadGame into the runtime businessesCache
+
+    // The loaded state is now expected to be part of the global `gameState` object
+    const loadedBusinesses = (typeof gameState !== 'undefined' && gameState.businesses) ? gameState.businesses : null;
+
+    if (!loadedBusinesses || Object.keys(loadedBusinesses).length === 0) {
+        console.log("No loaded business state to apply from global gameState.");
+        return;
+    }
+
+    console.log("Applying loaded business state from global gameState to runtime cache...");
+    let mergeCount = 0;
+    let updatedIds = new Set(); // Keep track of updated businesses
+
+    for (const businessId in loadedBusinesses) {
+        const savedBizData = loadedBusinesses[businessId];
+        // Check if this business exists in the current runtime cache
+        if (businessesCache[businessId]) {
+            // Merge saved state into the existing cache entry
+            businessesCache[businessId].lastCollected = savedBizData.lastCollected || businessesCache[businessId].lastCollected || 0;
+            businessesCache[businessId].protectingOrganization = savedBizData.protectingOrganization || businessesCache[businessId].protectingOrganization || null;
+            businessesCache[businessId].protectionPower = savedBizData.protectionPower || businessesCache[businessId].protectionPower || 0;
+            businessesCache[businessId].protectingUsers = savedBizData.protectingUsers || businessesCache[businessId].protectingUsers || [];
+            updatedIds.add(businessId); // Mark as updated
+            mergeCount++;
+        } else {
+             // Log if a saved business isn't in the current cache after initial load
+             // console.warn(`Saved business ${businessId} not found in current runtime cache during apply. State not merged.`);
+        }
+    }
+    console.log(`Applied saved state for ${mergeCount} businesses.`);
+
+    // Update markers for only the businesses whose state was merged
+    console.log(`Updating markers for ${updatedIds.size} businesses with loaded state...`);
+    updatedIds.forEach(id => {
+        if (displayedBusinessIds.has(id)) { // Only update if marker is potentially visible
+             updateSingleBusinessMarker(id);
+        }
+    });
+     // Update the protection book UI if any relevant business state changed
+     if (updatedIds.size > 0) {
+         updateProtectionBookUI();
+     }
+}
+// Make applyLoadedBusinessState globally accessible for initialization.js
+window.applyLoadedBusinessState = applyLoadedBusinessState;
+
 
 // --- SUI Wallet Event Handlers (Removed) ---
 
 // Add listeners for the custom events from suiIntegration.js (Removed)
 
-// Initial Load Logic (Example - needs refinement based on execution order)
-// This logic needs to run *after* suiIntegration.js has potentially auto-connected
-// and *before* the game fully starts interacting with player data.
-// Putting it in a DOMContentLoaded listener might be safest.
+// Initial Load Logic (REMOVED - Handled by initialization.js and SaveManager)
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("gameWorld.js DOMContentLoaded: Initializing player state...");
+    console.log("gameWorld.js DOMContentLoaded: Loading daily limits and business cache state (if any)...");
     loadDailyRemovalLimit(); // Load daily limits early
+    // loadBusinessCacheState(); // REMOVED - Loading handled by SaveManager in initialization.js
 
-    // Attempt to load the last used player ID from localStorage
-    currentPlayerId = localStorage.getItem('lastPlayerId') || null;
-    if (currentPlayerId) {
-        console.log(`Attempting to load last player: ${currentPlayerId}`);
-        if (!loadPlayerState(currentPlayerId)) {
-             // If loading fails (e.g., corrupted data), reset
-             console.warn(`Failed to load state for ${currentPlayerId}. Resetting.`);
-             currentPlayerId = null; // Clear the invalid ID
-             initializeNewPlayerState(`guest_${Date.now()}`); // Create a new guest ID
-        } else {
-             // Loading succeeded, update UI
-             triggerUIUpdates();
-        }
-    } else {
-        // No last player ID found, initialize a new guest state
-        console.log("No last player ID found. Starting new guest session.");
-        initializeNewPlayerState(`guest_${Date.now()}`); // Create a new guest ID
-        // UI updates are handled within initializeNewPlayerState via triggerUIUpdates()
-    }
+    // Player state loading, ID management, and initial UI updates are now handled in initialization.js
+    // after SaveManager.loadGame() is called.
 
-    // Save the potentially new/loaded currentPlayerId as the last used one
-    if (currentPlayerId) {
-        localStorage.setItem('lastPlayerId', currentPlayerId);
-    } else {
-        localStorage.removeItem('lastPlayerId'); // Clear if no valid ID
-    }
+    // Auto-save is also removed from here.
 });
+
+// --- Auto-Save and Save-on-Exit (REMOVED) ---
+// Removed startAutoSave, stopAutoSave, and beforeunload listener
