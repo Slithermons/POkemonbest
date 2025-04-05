@@ -255,7 +255,7 @@ function initiateBattle(playerBattleStats_IGNORED, enemyData) { // playerBattleS
     }
 
     showBattleModal();
-    startBattleImageCycle(); // Start image cycling when battle begins
+    // REMOVED: startBattleImageCycle(); // Image is now shown only on hit
 }
 
 // Function to calculate base damage dealt (before critical)
