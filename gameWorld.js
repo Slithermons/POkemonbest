@@ -92,6 +92,17 @@ function savePlayerState(playerId) {
         return;
     }
     console.log(`Saving state for player ID: ${playerId}`);
+
+    // --- Gather Protected Business IDs ---
+    const protectedBusinessIds = [];
+    for (const businessId in businessesCache) {
+        const biz = businessesCache[businessId];
+        if (biz.protectingUsers && biz.protectingUsers.some(user => user.userId === playerId)) {
+            protectedBusinessIds.push(businessId);
+        }
+    }
+    console.log(`Saving ${protectedBusinessIds.length} protected business IDs.`);
+
     try {
         localStorage.setItem(getPlayerStateKey(playerId, 'level'), playerLevel.toString());
         localStorage.setItem(getPlayerStateKey(playerId, 'experience'), playerExperience.toString());
@@ -105,6 +116,8 @@ function savePlayerState(playerId) {
         localStorage.setItem(getPlayerStateKey(playerId, 'orgBaseLocation'), JSON.stringify(currentOrganizationBaseLocation)); // Save org base location
         localStorage.setItem(getPlayerStateKey(playerId, 'username'), playerUsername); // Still save username/alias if entered
         localStorage.setItem(getPlayerStateKey(playerId, 'alias'), playerAlias);
+        localStorage.setItem(getPlayerStateKey(playerId, 'location'), JSON.stringify(currentUserLocation)); // Save current location
+        localStorage.setItem(getPlayerStateKey(playerId, 'protectedBusinesses'), JSON.stringify(protectedBusinessIds)); // Save protected business IDs
 
         console.log(`State saved successfully for ${playerId}.`);
     } catch (e) {
@@ -143,6 +156,45 @@ function loadPlayerState(playerId) {
         currentOrganizationBaseLocation = JSON.parse(localStorage.getItem(getPlayerStateKey(playerId, 'orgBaseLocation')) || 'null');
         playerUsername = localStorage.getItem(getPlayerStateKey(playerId, 'username')) || '';
         playerAlias = localStorage.getItem(getPlayerStateKey(playerId, 'alias')) || '';
+        currentUserLocation = JSON.parse(localStorage.getItem(getPlayerStateKey(playerId, 'location')) || 'null'); // Load location
+        const loadedProtectedBusinessIds = JSON.parse(localStorage.getItem(getPlayerStateKey(playerId, 'protectedBusinesses')) || '[]'); // Load protected business IDs
+
+        // --- Re-apply Protection Status ---
+        // This needs to happen *after* businesses might have been loaded/cached elsewhere,
+        // or be robust enough to handle cache being populated later.
+        // For simplicity, we assume businessesCache might have some data already.
+        // We iterate through the loaded IDs and add the player back to the protectors list
+        // for those businesses IF they exist in the cache.
+        // NOTE: This doesn't fully restore the *entire* protection state of all businesses,
+        // only the current player's contribution based on the saved list.
+        console.log(`Attempting to re-apply protection for ${loadedProtectedBusinessIds.length} businesses...`);
+        loadedProtectedBusinessIds.forEach(businessId => {
+            const biz = businessesCache[businessId];
+            if (biz) {
+                // Ensure protectingUsers array exists
+                if (!biz.protectingUsers) {
+                    biz.protectingUsers = [];
+                }
+                // Avoid adding duplicate entries if loading happens multiple times or state is mixed
+                const alreadyProtecting = biz.protectingUsers.some(user => user.userId === playerId);
+                if (!alreadyProtecting) {
+                    // Add the player back - Use current playerPower, might need recalculation if stats changed
+                    calculatePlayerPower(); // Ensure power is current before adding
+                    biz.protectingUsers.push({ userId: playerId, userPower: playerPower });
+                    // Recalculate total power for the business
+                    biz.protectionPower = biz.protectingUsers.reduce((sum, user) => sum + user.userPower, 0);
+                    // Set the organization if it's not set or different (should match loaded org)
+                    if (!biz.protectingOrganization && currentUserOrganization) {
+                         biz.protectingOrganization = { ...currentUserOrganization };
+                    }
+                    console.log(`Re-applied protection for player ${playerId} to business ${businessId}`);
+                }
+            } else {
+                console.warn(`Saved protected business ID ${businessId} not found in current cache during load.`);
+            }
+        });
+        // It's crucial to update the UI/markers *after* loading is complete.
+        // This is handled by triggerUIUpdates() called later in the DOMContentLoaded listener.
 
         // Ensure loaded data types are correct (e.g., numbers are numbers)
         playerLevel = Number(playerLevel);
@@ -740,9 +792,58 @@ function updateMarkersVisibility(playerLat, playerLon) {
             if (distance > VISIBILITY_RADIUS_METERS) {
                 layer.removeLayer(marker); // Remove directly from the layer
                 removedCount++;
-            }
-        });
+    }
+});
 
+// --- Auto-Save and Save-on-Exit ---
+let autoSaveInterval = null;
+const AUTO_SAVE_INTERVAL_MS = 30 * 1000; // Save every 30 seconds
+
+function startAutoSave() {
+    if (autoSaveInterval) clearInterval(autoSaveInterval); // Clear existing interval if any
+
+    // Only start auto-save if we have a valid player ID
+    if (currentPlayerId) {
+        autoSaveInterval = setInterval(() => {
+            if (currentPlayerId) { // Double-check ID hasn't become null
+                savePlayerState(currentPlayerId);
+            } else {
+                console.warn("Auto-save interval running but currentPlayerId is null. Stopping.");
+                stopAutoSave();
+            }
+        }, AUTO_SAVE_INTERVAL_MS);
+        console.log(`Auto-save started for player ${currentPlayerId} every ${AUTO_SAVE_INTERVAL_MS / 1000} seconds.`);
+    } else {
+        console.warn("Cannot start auto-save: currentPlayerId is null.");
+    }
+}
+
+function stopAutoSave() {
+    if (autoSaveInterval) {
+        clearInterval(autoSaveInterval);
+        autoSaveInterval = null;
+        console.log("Auto-save stopped.");
+    }
+}
+
+// Save when the window is about to be closed
+window.addEventListener('beforeunload', (event) => {
+    console.log("Window closing, attempting final save...");
+    if (currentPlayerId) {
+        savePlayerState(currentPlayerId);
+        console.log("Final save attempt complete.");
+    } else {
+        console.log("No current player ID, skipping final save.");
+    }
+    // Note: Complex async operations might not complete here. localStorage sync save is usually okay.
+});
+
+// Start auto-save after initial state is loaded/initialized
+document.addEventListener('DOMContentLoaded', () => {
+    // This ensures startAutoSave runs after the initial load/init logic above completes
+    // and currentPlayerId is definitely set (either loaded or newly initialized).
+    startAutoSave();
+});
         // --- Addition Phase ---
         // Iterate through the source cache/array for this type of item
         if (cache && latField && lonField) {
