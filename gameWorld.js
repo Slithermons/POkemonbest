@@ -24,9 +24,12 @@ let currentOrganizationBaseLocation = null; // Store the LatLon of the joined or
 let playerCurrentHp = 100; // Current health points
 let playerMaxHp = 100;     // Maximum health points
 let playerInventory = []; // Array to hold item/weapon objects possessed by the player [{ id: string, quantity?: number, ammo?: number }]
-let currentPlayerId = 'player123'; // Example unique player ID
+// Removed duplicate declaration: let currentPlayerId = 'player123';
 let playerUsername = ''; // Variable for username
-let playerAlias = ''; // Variable for alias
+let playerAlias = ''; // Variable for alias - May become secondary if wallet is primary ID
+
+// --- Player ID Management ---
+let currentPlayerId = null; // Start as null, will be set by wallet or localStorage fallback
 
 // --- Daily Limits & Tracking ---
 const MAX_DAILY_PROTECTION_REMOVALS = 2;
@@ -75,12 +78,155 @@ function saveDailyRemovalLimit() {
 }
 
 // NOTE: loadDailyRemovalLimit() needs to be called during game initialization.
-// This should ideally happen in initialization.js after the DOM is ready.
+
+// --- Player State Persistence (using localStorage) ---
+
+function getPlayerStateKey(playerId, key) {
+    if (!playerId) return null; // Cannot save/load without an ID
+    return `player_${playerId}_${key}`;
+}
+
+function savePlayerState(playerId) {
+    if (!playerId) {
+        console.warn("Cannot save player state: No playerId provided.");
+        return;
+    }
+    console.log(`Saving state for player ID: ${playerId}`);
+    try {
+        localStorage.setItem(getPlayerStateKey(playerId, 'level'), playerLevel.toString());
+        localStorage.setItem(getPlayerStateKey(playerId, 'experience'), playerExperience.toString());
+        localStorage.setItem(getPlayerStateKey(playerId, 'stats'), JSON.stringify(playerStats));
+        localStorage.setItem(getPlayerStateKey(playerId, 'inventory'), JSON.stringify(playerInventory));
+        localStorage.setItem(getPlayerStateKey(playerId, 'equipment'), JSON.stringify(playerEquipment));
+        localStorage.setItem(getPlayerStateKey(playerId, 'cash'), currentCash.toString());
+        localStorage.setItem(getPlayerStateKey(playerId, 'currentHp'), playerCurrentHp.toString());
+        // Max HP is calculated, no need to save directly, but save vitality which determines it.
+        localStorage.setItem(getPlayerStateKey(playerId, 'organization'), JSON.stringify(currentUserOrganization)); // Save org object
+        localStorage.setItem(getPlayerStateKey(playerId, 'orgBaseLocation'), JSON.stringify(currentOrganizationBaseLocation)); // Save org base location
+        localStorage.setItem(getPlayerStateKey(playerId, 'username'), playerUsername); // Still save username/alias if entered
+        localStorage.setItem(getPlayerStateKey(playerId, 'alias'), playerAlias);
+
+        console.log(`State saved successfully for ${playerId}.`);
+    } catch (e) {
+        console.error(`Failed to save player state for ${playerId} to localStorage:`, e);
+        showCustomAlert("Warning: Could not save game progress. Storage might be full or disabled.");
+    }
+}
+
+function loadPlayerState(playerId) {
+    if (!playerId) {
+        console.warn("Cannot load player state: No playerId provided.");
+        return false;
+    }
+    console.log(`Attempting to load state for player ID: ${playerId}`);
+    try {
+        const savedLevel = localStorage.getItem(getPlayerStateKey(playerId, 'level'));
+        // Check if *any* data exists for this player ID before proceeding
+        if (savedLevel === null) {
+            console.log(`No saved state found for player ID: ${playerId}`);
+            return false; // Indicate no data found
+        }
+
+        // Load and parse data, providing defaults if parsing fails or data is missing
+        playerLevel = parseInt(savedLevel || '1', 10);
+        playerExperience = parseInt(localStorage.getItem(getPlayerStateKey(playerId, 'experience')) || '0', 10);
+        playerStats = JSON.parse(localStorage.getItem(getPlayerStateKey(playerId, 'stats')) || '{"influence": 10, "strength": 10, "agility": 10, "vitality": 10, "hitRate": 10}');
+        playerInventory = JSON.parse(localStorage.getItem(getPlayerStateKey(playerId, 'inventory')) || '[]');
+        playerEquipment = JSON.parse(localStorage.getItem(getPlayerStateKey(playerId, 'equipment')) || '{"Head": null, "Mask": null, "Body": null, "Gloves": null, "Pants": null, "Boots": null, "Accessory": null, "Charm": null, "Weapon": null}');
+        currentCash = parseInt(localStorage.getItem(getPlayerStateKey(playerId, 'cash')) || '0', 10);
+        // Max HP is calculated based on vitality, load current HP carefully
+        calculateMaxHp(); // Calculate max HP based on loaded vitality first
+        playerCurrentHp = parseInt(localStorage.getItem(getPlayerStateKey(playerId, 'currentHp')) || playerMaxHp.toString(), 10);
+        playerCurrentHp = Math.min(playerCurrentHp, playerMaxHp); // Ensure current HP doesn't exceed max
+
+        currentUserOrganization = JSON.parse(localStorage.getItem(getPlayerStateKey(playerId, 'organization')) || 'null');
+        currentOrganizationBaseLocation = JSON.parse(localStorage.getItem(getPlayerStateKey(playerId, 'orgBaseLocation')) || 'null');
+        playerUsername = localStorage.getItem(getPlayerStateKey(playerId, 'username')) || '';
+        playerAlias = localStorage.getItem(getPlayerStateKey(playerId, 'alias')) || '';
+
+        // Ensure loaded data types are correct (e.g., numbers are numbers)
+        playerLevel = Number(playerLevel);
+        playerExperience = Number(playerExperience);
+        currentCash = Number(currentCash);
+        playerCurrentHp = Number(playerCurrentHp);
+        // TODO: Add validation for stats, inventory, equipment objects if needed
+
+        console.log(`State loaded successfully for ${playerId}. Level: ${playerLevel}, Cash: ${currentCash}`);
+        return true; // Indicate success
+    } catch (e) {
+        console.error(`Failed to load or parse player state for ${playerId} from localStorage:`, e);
+        showCustomAlert("Error loading saved game progress. Resetting to default state.");
+        initializeNewPlayerState(playerId); // Reset to default if loading fails critically
+        return false; // Indicate failure
+    }
+}
+
+function initializeNewPlayerState(playerId) {
+    console.log(`Initializing new player state for ID: ${playerId}`);
+    currentPlayerId = playerId; // Set the ID
+    playerLevel = 1;
+    playerExperience = 0;
+    playerStats = {
+        influence: 10,
+    strength: 10,
+    agility: 10,
+    vitality: 10,
+        strength: 10,
+        agility: 10,
+        vitality: 10,
+        hitRate: 10
+    };
+    playerInventory = [];
+    playerEquipment = {
+        Head: null, Mask: null, Body: null, Gloves: null, Pants: null,
+        Boots: null, Accessory: null, Charm: null, Weapon: null
+    };
+    currentCash = 100; // Start with some cash
+    currentUserOrganization = null;
+    currentOrganizationBaseLocation = null;
+    playerUsername = ''; // Clear username/alias for new profile
+    playerAlias = '';
+
+    // Calculate initial derived stats
+    calculatePlayerPower();
+    calculateCharacterStats(); // This calculates max HP and sets current HP
+    playerCurrentHp = playerMaxHp; // Start with full HP
+
+    console.log(`New player state initialized. HP: ${playerCurrentHp}/${playerMaxHp}, Cash: ${currentCash}`);
+
+    // Save this initial state immediately
+    savePlayerState(playerId);
+}
+
+function resetLocalPlayerState() {
+    console.log("Resetting local player state variables to defaults (simulating logout).");
+    // Reset variables to initial defaults, similar to initializeNewPlayerState but without saving
+    currentPlayerId = null; // Clear the ID
+    playerLevel = 1;
+    playerExperience = 0;
+    playerStats = { influence: 10, strength: 10, agility: 10, vitality: 10, hitRate: 10 };
+    playerInventory = [];
+    playerEquipment = { Head: null, Mask: null, Body: null, Gloves: null, Pants: null, Boots: null, Accessory: null, Charm: null, Weapon: null };
+    currentCash = 0; // Reset cash to 0 for logged-out state
+    currentUserOrganization = null;
+    currentOrganizationBaseLocation = null;
+    playerUsername = '';
+    playerAlias = '';
+
+    // Recalculate derived stats for the default state
+    calculatePlayerPower();
+    calculateCharacterStats();
+    playerCurrentHp = playerMaxHp; // Full HP for default state
+
+    // Trigger UI updates to reflect the reset state
+    triggerUIUpdates();
+}
+
 
 // --- Player Stats & Level ---
-let playerLevel = 1;
-let playerExperience = 0;
-let playerStats = {
+let playerLevel = 1; // Default value, will be overwritten by loadPlayerState
+let playerExperience = 0; // Default value
+let playerStats = { // Default value
     influence: 10,
     strength: 10,
     agility: 10,
@@ -88,24 +234,17 @@ let playerStats = {
     hitRate: 10
 };
 let playerPower = 0; // Calculated from stats
-let playerCharacterStats = { // Calculated from base stats and equipment
+let playerCharacterStats = { // Calculated from base stats and equipment - Default value
     defence: 0,
     evasionRate: 0,
     criticalRate: 0,
-    maxHp: 0, // Added derived max HP here for consistency
-    damage: 0 // Added damage stat
+    maxHp: 100, // Will be recalculated
+    damage: 0
 };
-// Updated playerEquipment structure to match EquipmentType and HTML slots
+// Updated playerEquipment structure - Default value
 let playerEquipment = {
-    Head: null,
-    Mask: null,
-    Body: null,
-    Gloves: null,
-    Pants: null,
-    Boots: null,
-    Accessory: null,
-    Charm: null,
-    Weapon: null
+    Head: null, Mask: null, Body: null, Gloves: null, Pants: null,
+    Boots: null, Accessory: null, Charm: null, Weapon: null
 };
 
 // --- Constants ---
@@ -1483,3 +1622,57 @@ function removeEnemyFromMap(enemyId) {
         }
     }
 }
+
+// Helper function to trigger all necessary UI updates after state changes
+function triggerUIUpdates() {
+    console.log("Triggering full UI update based on current game state.");
+    if (typeof updateCashUI === 'function') updateCashUI(currentCash);
+    if (typeof updateHpUI === 'function') updateHpUI(); // Uses global HP vars
+    if (typeof updateExperienceUI === 'function') updateExperienceUI(); // Uses global level/exp vars
+    if (typeof updateInventoryUI === 'function') updateInventoryUI(); // Uses global inventory
+    if (typeof updateEquipmentUI === 'function') updateEquipmentUI(); // Uses global equipment
+    if (typeof updateOrganizationUI === 'function') updateOrganizationUI(); // Uses global org vars
+    if (typeof updateProtectionBookUI === 'function') updateProtectionBookUI(); // Uses global caches/player ID
+    // Add other UI update calls as needed (e.g., stats modal if open)
+}
+
+
+// --- SUI Wallet Event Handlers (Removed) ---
+
+// Add listeners for the custom events from suiIntegration.js (Removed)
+
+// Initial Load Logic (Example - needs refinement based on execution order)
+// This logic needs to run *after* suiIntegration.js has potentially auto-connected
+// and *before* the game fully starts interacting with player data.
+// Putting it in a DOMContentLoaded listener might be safest.
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("gameWorld.js DOMContentLoaded: Initializing player state...");
+    loadDailyRemovalLimit(); // Load daily limits early
+
+    // Attempt to load the last used player ID from localStorage
+    currentPlayerId = localStorage.getItem('lastPlayerId') || null;
+    if (currentPlayerId) {
+        console.log(`Attempting to load last player: ${currentPlayerId}`);
+        if (!loadPlayerState(currentPlayerId)) {
+             // If loading fails (e.g., corrupted data), reset
+             console.warn(`Failed to load state for ${currentPlayerId}. Resetting.`);
+             currentPlayerId = null; // Clear the invalid ID
+             initializeNewPlayerState(`guest_${Date.now()}`); // Create a new guest ID
+        } else {
+             // Loading succeeded, update UI
+             triggerUIUpdates();
+        }
+    } else {
+        // No last player ID found, initialize a new guest state
+        console.log("No last player ID found. Starting new guest session.");
+        initializeNewPlayerState(`guest_${Date.now()}`); // Create a new guest ID
+        // UI updates are handled within initializeNewPlayerState via triggerUIUpdates()
+    }
+
+    // Save the potentially new/loaded currentPlayerId as the last used one
+    if (currentPlayerId) {
+        localStorage.setItem('lastPlayerId', currentPlayerId);
+    } else {
+        localStorage.removeItem('lastPlayerId'); // Clear if no valid ID
+    }
+});
