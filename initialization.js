@@ -463,8 +463,18 @@ document.addEventListener('DOMContentLoaded', () => {
         spawnRivals(initialLat, initialLon);
         await findAndJoinInitialOrganization(initialLat, initialLon);
         const initialBounds = map.getBounds();
-        const initialBusinesses = await fetchBusinessesInBounds(initialBounds); displayBusinesses(initialBusinesses);
-        updateBusinessMarkers();
+        const initialBusinesses = await fetchBusinessesInBounds(initialBounds);
+        displayBusinesses(initialBusinesses); // Display fetched businesses first
+
+        // --- Apply Loaded Business State AFTER initial fetch/display ---
+        if (typeof applyLoadedBusinessState === 'function') {
+            applyLoadedBusinessState(); // Now merge saved state (protection, etc.)
+        } else {
+            console.error("applyLoadedBusinessState function not found! Saved business state cannot be applied.");
+        }
+        // --- End Apply Loaded Business State ---
+
+        updateBusinessMarkers(); // Update markers based on potentially merged state
         // REMOVED: spawnEnemies(10, initialLat, initialLon, 0.008, enemyLayer);
         startEnemyMovement(3000); // Start general enemy movement
         startAssociateProximityChecks(); // Start the new associate management logic
