@@ -1509,8 +1509,97 @@ document.addEventListener('DOMContentLoaded', () => {
     if (powerTabBtn) {
         powerTabBtn.addEventListener('click', () => switchLeaderboardTab('power'));
     } else {
-        console.error("Leaderboard power tab button not found.");
+    console.error("Leaderboard power tab button not found.");
+    }
+
+    // --- SUI Wallet Integration Listeners ---
+    document.addEventListener('suiWalletConnected', (event) => {
+        console.log('uiManager received suiWalletConnected:', event.detail);
+        if (event.detail && event.detail.address) {
+            updatePlayerIdentityUI(event.detail);
+        }
+    });
+
+    document.addEventListener('suiWalletDisconnected', () => {
+        console.log('uiManager received suiWalletDisconnected');
+        clearPlayerIdentityUI();
+    });
+
+    // Initial check in case wallet connected before this script ran (e.g., autoConnect)
+    if (window.suiWallet && window.suiWallet.connected && window.suiWallet.address) {
+         console.log('uiManager performing initial identity update for already connected wallet.');
+         updatePlayerIdentityUI(window.suiWallet);
     }
 
 
 }); // Close DOMContentLoaded listener
+
+
+// --- SUI Wallet UI Update Functions ---
+
+function updatePlayerIdentityUI(walletInfo) {
+    if (!walletInfo || !walletInfo.address) return;
+
+    const truncatedAddress = `${walletInfo.address.substring(0, 6)}...${walletInfo.address.substring(walletInfo.address.length - 4)}`;
+
+    // Update bottom bar alias
+    if (playerAliasBar) {
+        playerAliasBar.textContent = `Wallet: ${truncatedAddress}`;
+        playerAliasBar.title = `Connected SUI Wallet: ${walletInfo.address}`; // Tooltip with full address
+    }
+
+    // Disable manual inputs
+    if (usernameInput) {
+        usernameInput.disabled = true;
+        usernameInput.placeholder = 'Wallet Connected';
+        // Optionally clear the input value if desired
+        // usernameInput.value = '';
+    }
+    if (aliasInput) {
+        aliasInput.disabled = true;
+        aliasInput.placeholder = 'Wallet Connected';
+         // Optionally clear the input value if desired
+        // aliasInput.value = '';
+    }
+    if (saveUserInfoBtn) {
+        saveUserInfoBtn.disabled = true;
+        saveUserInfoBtn.title = 'User info managed by connected wallet';
+    }
+
+    // Potentially update other UI elements or trigger game logic updates
+    console.log(`Player identity updated to SUI Wallet: ${walletInfo.address}`);
+
+    // TODO: Consider updating currentPlayerId in gameWorld.js or fetching player data based on wallet address
+}
+
+function clearPlayerIdentityUI() {
+    // Restore bottom bar alias (use stored alias or default)
+    if (playerAliasBar) {
+        playerAliasBar.textContent = playerAlias || 'Alias'; // Use global playerAlias from gameWorld.js
+        playerAliasBar.title = ''; // Clear wallet tooltip
+    }
+
+    // Re-enable manual inputs, respecting the username lock state
+    if (usernameInput) {
+        // Only re-enable if it wasn't previously locked by saving a username
+        const wasLockedBySave = usernameInput.readOnly;
+        usernameInput.disabled = wasLockedBySave; // Keep disabled if it was readOnly
+        usernameInput.placeholder = 'Enter username';
+        // Restore value if needed, or rely on loadUserInfo
+        // usernameInput.value = playerUsername || '';
+    }
+    if (aliasInput) {
+        aliasInput.disabled = false;
+        aliasInput.placeholder = 'Enter alias';
+         // Restore value if needed, or rely on loadUserInfo
+        // aliasInput.value = playerAlias || '';
+    }
+    if (saveUserInfoBtn) {
+        saveUserInfoBtn.disabled = false;
+        saveUserInfoBtn.title = '';
+    }
+
+    console.log("Player identity UI cleared (wallet disconnected).");
+
+    // TODO: Consider resetting currentPlayerId or loading default player data
+}

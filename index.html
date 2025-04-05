@@ -8,6 +8,8 @@
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
           crossorigin=""/>
     <link rel="stylesheet" href="style.css">
+    <!-- SUI dApp Kit CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/@mysten/dapp-kit@^0.13/dist/index.css" />
 </head>
 <body>
     <div id="loading-screen">
@@ -100,6 +102,9 @@
                     <span id="player-level-bar">Level: 1</span> <!-- Placeholder -->
                 </div>
             </div>
+            <div id="sui-connect-container" style="text-align: center; padding: 5px;">
+                <!-- SUI Connect Button will be rendered here by JS -->
+            </div>
             <div id="action-buttons-bar">
                 <button id="action-userinfo-btn" class="action-btn" title="User Info">👤</button> <!-- Placeholder Icon -->
                 <button id="action-stats-btn" class="action-btn" title="Stats">📊</button> <!-- Placeholder Icon -->
@@ -125,7 +130,11 @@
     <script src="gameWorld.js"></script>   <!-- Core game state, data, logic (depends on map) -->
     <script src="uiManager.js"></script>   <!-- UI updates, DOM manipulation, event listeners (depends on map, gameWorld) -->
     <script src="battle.js"></script>      <!-- Battle simulation logic (depends on gameWorld, uiManager) -->
-    <script src="initialization.js"></script> <!-- Loading, map init, game start (needs Shop, gameWorld, uiManager) -->
+
+    <!-- SUI Integration -->
+    <script type="module" src="suiIntegration.js"></script> <!-- Added type="module" -->
+
+    <script src="initialization.js"></script> <!-- Loading, map init, game start (needs Shop, gameWorld, uiManager, suiIntegration) -->
 
 
     <!-- Equipment Modal -->
