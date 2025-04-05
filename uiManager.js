@@ -56,6 +56,22 @@ const cashIcon = L.icon({
     className: 'map-icon-darktheme' // Class for CSS filter
 });
 
+// Define abandoned building icon
+const abandonedBuildingIcon = L.icon({
+    iconUrl: 'img/build.png', // Path to the building image
+    iconSize: [35, 35], // Adjust size as needed
+    iconAnchor: [17, 35], // Point bottom center
+    popupAnchor: [0, -35] // Popup above the anchor
+});
+
+// Define ads icon
+const adsIcon = L.icon({
+    iconUrl: 'img/ads.png', // Path to the ads image
+    iconSize: [35, 35], // Adjust size as needed
+    iconAnchor: [17, 35], // Point bottom center
+    popupAnchor: [0, -35] // Popup above the anchor
+});
+
 // Define a rival icon (e.g., silhouette or fedora)
 const rivalIcon = L.icon({
     iconUrl: 'https://img.icons8.com/ios-filled/50/000000/user-secret.png', // Example secret user icon
@@ -829,6 +845,26 @@ function handleShopSellClick(event) {
 }
 
 
+// --- How to Play Modal Functions ---
+
+function openHowToPlayModal() {
+    const modal = document.getElementById('how-to-play-modal');
+    if (modal) {
+        modal.classList.remove('modal-hidden');
+        console.log("How to Play modal opened.");
+    } else {
+        console.error("How to Play modal element not found!");
+    }
+}
+
+function closeHowToPlayModal() {
+    const modal = document.getElementById('how-to-play-modal');
+    if (modal) {
+        modal.classList.add('modal-hidden');
+        console.log("How to Play modal closed.");
+    }
+}
+
 // --- Event Listeners ---
 
 // Combined handler for popup open to attach button listeners
@@ -1344,6 +1380,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     } else {
         console.error("Controlled businesses list element not found for interaction listener.");
+    }
+
+    // --- How to Play Modal Listeners ---
+    const howToPlayModal = document.getElementById('how-to-play-modal');
+    const closeHowToPlayBtn = document.getElementById('close-how-to-play-btn');
+
+    if (closeHowToPlayBtn) {
+        closeHowToPlayBtn.addEventListener('click', closeHowToPlayModal);
+    } else {
+        console.error("Close button for How to Play modal not found!");
+    }
+
+    if (howToPlayModal) {
+        howToPlayModal.addEventListener('click', (event) => {
+            // Close only if clicking the background, not the content
+            if (event.target === howToPlayModal) {
+                closeHowToPlayModal();
+            }
+        });
+    } else {
+         console.error("How to Play modal element not found for background click listener.");
     }
 
 

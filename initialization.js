@@ -203,6 +203,22 @@ function checkAndHideLoadingScreen() {
         console.log("Loading screen hidden.");
         hideScreenTimeout = null;
         // REMOVED playback attempt from here. Rely on sound toggle.
+
+        // --- Show "How to Play" Modal on First Load ---
+        if (typeof openHowToPlayModal === 'function') {
+            const hasSeen = localStorage.getItem('hasSeenHowToPlay');
+            if (!hasSeen) {
+                openHowToPlayModal();
+                localStorage.setItem('hasSeenHowToPlay', 'true');
+                console.log("Showing 'How to Play' modal for the first time.");
+            } else {
+                console.log("User has seen 'How to Play' modal before.");
+            }
+        } else {
+            console.warn("openHowToPlayModal function not found, cannot show modal.");
+        }
+        // --- End How to Play ---
+
     }, remainingTime);
 }
 

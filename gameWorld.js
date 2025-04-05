@@ -1042,13 +1042,27 @@ function processBusinessElements(elements) {
         if (!businessesCache[element.id]) {
             // Check if it's a store OR convenience store
             const isActualShop = tags.shop === 'store' || tags.shop === 'convenience';
+            // --- Custom Change: Handle 'fast_food' as 'ABANDON BUILDING' ---
+            let businessType = tags.shop || tags.amenity;
+            let isAbandoned = false;
+            let isAdSpace = false; // Add flag for Ad Space
+            if (tags.amenity === 'fast_food') {
+                businessType = 'ABANDON BUILDING';
+                isAbandoned = true;
+            } else if (tags.shop === 'mall') { // Check for mall
+                businessType = 'YOUR ADS HERE';
+                isAdSpace = true;
+            }
+            // --- End Custom Change ---
             const businessInfo = {
                 id: element.id,
                 name: name,
                 isShop: isActualShop, // Add the flag here
                 lat: lat,
                 lon: lon,
-                type: tags.shop || tags.amenity,
+                type: businessType, // Use modified type
+                isAbandoned: isAbandoned, // Add abandoned flag
+                isAdSpace: isAdSpace, // Add ad space flag
                 potential: potential, // Base potential for income
                 lastCollected: 0, // Timestamp of last collection
                 isControlled: false, // Default to not controlled (for profit)
@@ -1096,16 +1110,56 @@ function updateSingleBusinessMarker(businessId) {
      const previousProtectionPower = businessInfo.protectionPower; // Store old power
 
      // Icon definitions moved to uiManager.js
-     if (typeof customBusinessIcon === 'undefined' || typeof shopIcon === 'undefined') {
-        console.error("customBusinessIcon or shopIcon is not defined! Ensure uiManager.js defines them.");
+     // Check for all required icons, including abandonedBuildingIcon and adsIcon
+     if (typeof customBusinessIcon === 'undefined' || typeof shopIcon === 'undefined' || typeof abandonedBuildingIcon === 'undefined' || typeof adsIcon === 'undefined') {
+        console.error("One or more business icons (customBusinessIcon, shopIcon, abandonedBuildingIcon, adsIcon) are not defined! Ensure uiManager.js defines them.");
         return false;
      }
-     // Determine the correct icon based on whether it's a shop
+
+     // --- Handle Ad Spaces (Malls) ---
+     if (businessInfo.isAdSpace) {
+         businessInfo.marker.setIcon(adsIcon); // Use the ads icon
+         const adSpacePopupContent = `<b>YOUR ADS HERE</b><br>(Coming Soon...)`;
+         // Update popup only if content differs
+         if (businessInfo.marker.getPopup().getContent() !== adSpacePopupContent) {
+             businessInfo.marker.setPopupContent(adSpacePopupContent);
+         }
+         // Ensure no control/protection styling or status
+         businessInfo.isControlled = false;
+         const markerElement = businessInfo.marker.getElement();
+         if (markerElement) {
+             markerElement.classList.remove('protected-by-player-org');
+         }
+         // Return true if status changed (e.g., from controlled/protected to ad space)
+         return previousControlStatus !== false || previousProtectionPower !== 0;
+     }
+     // --- End Ad Space Handling ---
+
+     // --- Handle Abandoned Buildings ---
+     if (businessInfo.isAbandoned) {
+         businessInfo.marker.setIcon(abandonedBuildingIcon); // Use the new icon
+         const abandonedPopupContent = `<b>ABANDON BUILDING</b><br>(Coming Soon...)`;
+         // Update popup only if content differs
+         if (businessInfo.marker.getPopup().getContent() !== abandonedPopupContent) {
+             businessInfo.marker.setPopupContent(abandonedPopupContent);
+         }
+         // Ensure no control/protection styling or status
+         businessInfo.isControlled = false;
+         const markerElement = businessInfo.marker.getElement();
+         if (markerElement) {
+             markerElement.classList.remove('protected-by-player-org');
+         }
+         // Return true if status changed (e.g., from controlled/protected to abandoned)
+         return previousControlStatus !== false || previousProtectionPower !== 0;
+     }
+     // --- End Abandoned Building Handling ---
+
+     // Determine the correct icon for non-abandoned businesses
      const currentIcon = businessInfo.isShop ? shopIcon : customBusinessIcon;
      let currentPopupContent = `<b>${businessInfo.name}</b><br>(${businessInfo.type})`;
      let isNowControlled = false; // For profit collection
 
-     // --- Determine Profit Control Status ---
+     // --- Determine Profit Control Status (Only for non-abandoned) ---
      if (currentUserOrganization && currentOrganizationBaseLocation) {
          const distanceToBase = calculateDistance(
              businessInfo.lat, businessInfo.lon,
@@ -1166,9 +1220,10 @@ function updateSingleBusinessMarker(businessId) {
          // Button class defined in uiManager.js where handlePopupOpenForActions is
          currentPopupContent += `<br><button class="visit-shop-button btn btn-purple" data-business-id="${businessInfo.id}">Visit Shop</button>`; // Added purple class for distinction
      }
+     // Note: No buttons (Collect, Protect, Visit) are added for abandoned buildings due to the early return above.
 
 
-      // --- Check if anything significant changed ---
+      // --- Check if anything significant changed (for non-abandoned) ---
      const profitControlStatusChanged = previousControlStatus !== isNowControlled;
      const protectionStatusChanged = previousProtectionPower !== businessInfo.protectionPower ||
                                     (!businessInfo.protectingOrganization && previousProtectionPower > 0) ||

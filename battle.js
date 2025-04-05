@@ -66,14 +66,10 @@ function addLogEntry(message, type = 'info') {
     else entry.classList.add('info-message'); // Default info
 
     entry.textContent = message;
-    // Find the title paragraph to insert after it
-    const titleElement = battleLogDiv.querySelector('p');
-    if (titleElement && titleElement.nextSibling) {
-        battleLogDiv.insertBefore(entry, titleElement.nextSibling); // Insert after title
-    } else {
-        battleLogDiv.appendChild(entry); // Fallback append
-    }
-    // Scroll to the bottom of the log
+    // Append the new entry to the end of the log container
+    battleLogDiv.appendChild(entry);
+
+    // Scroll to the bottom of the log to show the latest entry
     battleLogDiv.scrollTop = battleLogDiv.scrollHeight;
 }
 
