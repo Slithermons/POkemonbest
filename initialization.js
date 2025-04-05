@@ -34,8 +34,9 @@ let hideScreenTimeout = null; // To store the timeout for hiding the screen
 // --- Sound Management ---
 let isSoundEnabled = true; // Default to on, will sync with checkbox
 let bgmAudio = null;
-let bgmNeedsUserInteraction = false; // Flag to track if BGM needs interaction to start
-let interactionListenerActive = false; // Flag to track if the interaction listener is attached
+// REMOVED: bgmNeedsUserInteraction flag and related listeners
+// let bgmNeedsUserInteraction = false;
+// let interactionListenerActive = false;
 const battleSounds = [];
 const battleSoundPaths = [
     'sound/gun1.mp3',
@@ -53,33 +54,26 @@ function playSound(audioElement) {
     }
 }
 
-// Function to attempt playing BGM - ONLY call this when interaction is confirmed or sound is re-enabled later
+// Function to attempt playing BGM - Called by sound toggle ON event
 function playBgm() {
-    // Crucial check: Do not attempt play if interaction is still required
-    if (bgmNeedsUserInteraction) {
-        console.log("playBgm called, but interaction still needed. Waiting for handleFirstInteraction.");
-        return;
-    }
-
     if (isSoundEnabled && bgmAudio && bgmAudio.paused) {
-        console.log("Attempting to play BGM (conditions met)...");
+        console.log("Attempting to play BGM via explicit trigger...");
         const playPromise = bgmAudio.play();
         if (playPromise !== undefined) {
             playPromise.catch(error => {
-                // This catch is a fallback for unexpected errors *after* the initial interaction unlock
-                console.error("Error playing BGM (post-interaction unlock):", error);
-                // If it's somehow the interaction error again, reset the flag and re-add listener
-                if (error.name === 'NotAllowedError' && !interactionListenerActive) {
-                    console.warn("NotAllowedError occurred unexpectedly after interaction unlock. Re-enabling interaction listener.");
-                    bgmNeedsUserInteraction = true;
-                    addInteractionListener(); // Re-add the listener
+                console.error("Error playing BGM:", error);
+                // If it fails with NotAllowedError, log it but don't automatically retry/add listeners.
+                if (error.name === 'NotAllowedError') {
+                     console.warn("NotAllowedError: BGM playback failed. Browser requires user interaction before audio can play. Try toggling sound off/on again after clicking/interacting.");
                 }
             });
         }
     } else if (!isSoundEnabled) {
-        // console.log("playBgm called but sound is disabled.");
+         // console.log("playBgm called but sound is disabled.");
     } else if (!bgmAudio) {
-        console.log("playBgm called but bgmAudio is not loaded yet.");
+         console.log("playBgm called but bgmAudio is not loaded yet.");
+    } else if (isSoundEnabled && bgmAudio && !bgmAudio.paused) {
+         // console.log("playBgm called, but BGM already playing.");
     }
 }
 
@@ -99,7 +93,6 @@ function playRandomBattleSound() {
         if (soundToPlay) {
             // Use the generic playSound function which includes the isSoundEnabled check
             playSound(soundToPlay);
-            // console.log(`Playing battle sound: ${battleSoundPaths[randomIndex]}`); // Can be noisy
         }
     }
 }
@@ -172,87 +165,22 @@ imagePreloadPromise.finally(() => {
      checkAndHideLoadingScreen();
 });
 
-// Set initial sound state and interaction requirement AFTER audio preloading attempt finishes
+// Set initial sound state AFTER audio preloading attempt finishes
 audioPreloadPromise.finally(() => {
     console.log("Audio preloading finished.");
     const soundToggle = document.getElementById('sound-toggle');
     if (soundToggle) {
-        if (soundToggle.checked) {
-            isSoundEnabled = true;
-            if (bgmAudio) { // Only need interaction if BGM loaded
-                bgmNeedsUserInteraction = true;
-                console.log("Initial sound state: ON. BGM ready, interaction needed.");
-                addInteractionListener(); // Add listener only if needed
-            } else {
-                bgmNeedsUserInteraction = false;
-                console.log("Initial sound state: ON. BGM FAILED TO LOAD.");
-            }
-        } else {
-            isSoundEnabled = false;
-            bgmNeedsUserInteraction = false;
-            console.log("Initial sound state: OFF.");
-        }
-    } else { // Fallback if toggle missing
-        isSoundEnabled = true;
-        bgmNeedsUserInteraction = !!bgmAudio;
-        console.warn("Sound toggle not found, defaulting sound ON.", bgmNeedsUserInteraction ? "Interaction needed." : "BGM failed to load.");
-        if (bgmNeedsUserInteraction) {
-            addInteractionListener();
-        }
+        // Set the global variable based on the checkbox's default state (checked)
+        isSoundEnabled = soundToggle.checked;
+        console.log(`Initial sound state: ${isSoundEnabled ? 'ON' : 'OFF'}.`);
+        // No need to check bgmNeedsUserInteraction here anymore
+    } else {
+        isSoundEnabled = true; // Default if toggle missing
+        console.warn("Sound toggle not found, defaulting sound ON.");
     }
 });
 
-// --- Interaction Handling for Audio Unlock ---
-function handleFirstInteraction() {
-    // Check if interaction is still needed and conditions are right
-    if (isSoundEnabled && bgmNeedsUserInteraction && bgmAudio && bgmAudio.paused) {
-        console.log("User interaction detected. Attempting FIRST BGM playback...");
-        const playPromise = bgmAudio.play();
-        if (playPromise !== undefined) {
-            playPromise.then(_ => {
-                // SUCCESS!
-                bgmNeedsUserInteraction = false; // Requirement met
-                console.log("BGM playback started successfully after interaction.");
-                removeInteractionListener(); // Clean up listener
-            }).catch(error => {
-                // Failed even after interaction - log error, keep listener for next try
-                console.error("Error playing BGM even after interaction:", error);
-                // Keep bgmNeedsUserInteraction = true
-            });
-        } else {
-             // Fallback for browsers without promise support
-             bgmNeedsUserInteraction = false; // Assume it worked or can't track
-             console.log("play() did not return a promise. Assuming success and removing listener.");
-             removeInteractionListener();
-        }
-    } else if (!bgmNeedsUserInteraction) {
-        // If interaction wasn't needed (already playing, started before, sound off initially)
-        // console.log("Interaction detected, but BGM does not need interaction. Removing listener.");
-        removeInteractionListener();
-    }
-    // If sound is disabled, listener remains until sound is enabled AND interaction happens.
-}
-
-function addInteractionListener() {
-    if (!interactionListenerActive) {
-        console.log("Adding interaction listeners for audio unlock.");
-        // Use capture phase to catch interactions early
-        document.addEventListener('click', handleFirstInteraction, { capture: true });
-        document.addEventListener('keydown', handleFirstInteraction, { capture: true });
-        document.addEventListener('touchstart', handleFirstInteraction, { capture: true });
-        interactionListenerActive = true;
-    }
-}
-
-function removeInteractionListener() {
-    if (interactionListenerActive) {
-        console.log("Removing interaction listeners.");
-        document.removeEventListener('click', handleFirstInteraction, { capture: true });
-        document.removeEventListener('keydown', handleFirstInteraction, { capture: true });
-        document.removeEventListener('touchstart', handleFirstInteraction, { capture: true });
-        interactionListenerActive = false;
-    }
-}
+// REMOVED Interaction Handling functions (handleFirstInteraction, addInteractionListener, removeInteractionListener)
 
 // --- Loading Screen Hide Logic ---
 function checkAndHideLoadingScreen() {
@@ -274,6 +202,7 @@ function checkAndHideLoadingScreen() {
         if (loadingScreen) loadingScreen.style.display = 'none';
         console.log("Loading screen hidden.");
         hideScreenTimeout = null;
+        // REMOVED playback attempt from here. Rely on sound toggle.
     }, remainingTime);
 }
 
@@ -327,12 +256,9 @@ document.addEventListener('DOMContentLoaded', () => {
             isSoundEnabled = soundToggle.checked;
             console.log(`Sound toggled: ${isSoundEnabled}`);
             if (isSoundEnabled) {
-                // Try to play BGM. If interaction still needed, it will wait.
+                // Directly attempt playback when toggled ON.
+                // playBgm() handles checks for audio readiness and errors.
                 playBgm();
-                // Ensure listener is active if interaction is still needed
-                if (bgmNeedsUserInteraction && !interactionListenerActive) {
-                    addInteractionListener();
-                }
             } else {
                 stopBgm();
                 // Stop battle sounds
@@ -342,8 +268,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         sound.currentTime = 0;
                     }
                 });
-                // No need for interaction listener if sound is off
-                removeInteractionListener();
             }
         });
     } else { console.warn("Sound toggle checkbox not found!"); }
@@ -369,7 +293,14 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("Feature layers initialized.");
 
     // --- Attach Map Event Listeners ---
-    map.on('popupopen', handlePopupOpenForActions);
+    // Attach popup listener here AFTER map is initialized and uiManager.js (with the function) is loaded
+    if (map && typeof handlePopupOpenForActions === 'function') {
+        map.on('popupopen', handlePopupOpenForActions);
+        console.log("Map popup listener attached in initialization.js.");
+    } else {
+        console.error("Could not attach map popup listener in initialization.js: map or handlePopupOpenForActions not ready.");
+        // Consider adding a fallback or retry mechanism if this proves unreliable
+    }
     map.on('moveend', async function() {
         if (!map || typeof fetchBasesInBounds !== 'function' /* add other checks */) {
             console.warn("Map 'moveend': Map or required functions not ready."); return;

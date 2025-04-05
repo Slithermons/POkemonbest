@@ -830,8 +830,8 @@ body {
 /* Map Control Buttons */
 .map-controls {
     position: absolute;
-    bottom: 10px; /* Position near bottom */
-    right: 10px; /* Position near right */
+    top: 10px; /* Position near top */
+    left: 10px; /* Position near left */
     z-index: 1000; /* Above map tiles, below popups/UI panels if needed */
     display: flex;
     flex-direction: column; /* Stack buttons vertically */
@@ -1123,6 +1123,91 @@ body {
 #battle-close-btn {
     /* Uses .btn and .btn-brown */
 }
+
+/* --- Bottom Bar Styles --- */
+#bottom-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 70px; /* Adjust height as needed */
+    background-color: rgba(20, 20, 20, 0.9); /* Dark background */
+    border-top: 1px solid #444;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 15px;
+    box-sizing: border-box;
+    z-index: 1002; /* Above map controls, below modals */
+}
+
+#player-info-bar {
+    display: flex;
+    align-items: center;
+}
+
+#player-portrait-img {
+    width: 50px; /* Adjust size */
+    height: 50px;
+    border-radius: 5px; /* Slightly rounded corners */
+    border: 2px solid #FFC107; /* Gold border like image */
+    margin-right: 10px;
+    object-fit: cover; /* Ensure image covers the area */
+    background-color: #555; /* Placeholder background */
+}
+
+#player-stats-text {
+    display: flex;
+    flex-direction: column;
+    color: #e0e0e0;
+}
+
+#player-stats-text span {
+    font-size: 0.9em;
+    line-height: 1.3;
+}
+
+#player-alias-bar {
+    font-weight: bold;
+    font-size: 1em;
+}
+
+#player-level-bar {
+    color: #aaa;
+}
+
+#action-buttons-bar {
+    display: flex;
+    align-items: center;
+    gap: 15px; /* Space between buttons */
+}
+
+.action-btn {
+    background-color: #333;
+    border: 2px solid #00bcd4; /* Cyan border like image */
+    color: #e0e0e0;
+    border-radius: 50%; /* Make it circular */
+    width: 45px; /* Adjust size */
+    height: 45px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5em; /* Adjust icon size */
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    padding: 0; /* Remove default padding */
+    line-height: 1; /* Ensure icon is centered vertically */
+}
+
+.action-btn:hover {
+    background-color: #444;
+    border-color: #80deea; /* Lighter cyan on hover */
+}
+
+.action-btn:active {
+    transform: scale(0.95);
+}
+
 
 /* Shootout Visual Style */
 .shootout-visual {

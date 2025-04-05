@@ -76,9 +76,7 @@
         <!-- Inventory Section Removed from Dashboard -->
         <!-- Equipment/Inventory/Stats Buttons -->
         <div class="dashboard-actions button-row"> <!-- Added button-row class -->
-            <button id="open-stats-btn" class="btn btn-blue">Stats</button> <!-- Added Stats button -->
-            <button id="open-equipment-btn" class="btn btn-blue">Equipment</button> <!-- Kept btn-blue -->
-            <button id="open-inventory-btn" class="btn btn-blue">Inventory</button> <!-- Changed to btn-blue -->
+            <!-- Buttons moved to bottom bar -->
         </div>
     </div>
 
@@ -93,6 +91,23 @@
 
         <!-- Button to show the book when minimized -->
         <button id="show-book-btn" class="show-ui-btn" title="Show Protection Book">📖</button> <!-- Changed class -->
+
+        <!-- New Bottom Bar -->
+        <div id="bottom-bar">
+            <div id="player-info-bar">
+                <!-- Player Portrait Image Removed -->
+                <div id="player-stats-text">
+                    <span id="player-alias-bar">Alias</span> <!-- Placeholder -->
+                    <span id="player-level-bar">Level: 1</span> <!-- Placeholder -->
+                </div>
+            </div>
+            <div id="action-buttons-bar">
+                <button id="action-userinfo-btn" class="action-btn" title="User Info">👤</button> <!-- Placeholder Icon -->
+                <button id="action-stats-btn" class="action-btn" title="Stats">📊</button> <!-- Placeholder Icon -->
+                <button id="action-equipment-btn" class="action-btn" title="Equipment">⚔️</button> <!-- Placeholder Icon -->
+                <button id="action-inventory-btn" class="action-btn" title="Inventory">🎒</button> <!-- Placeholder Icon -->
+            </div>
+        </div>
     </div> <!-- End Mobile Container -->
 
     <!-- Library Scripts -->

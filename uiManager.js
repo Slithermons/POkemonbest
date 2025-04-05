@@ -15,6 +15,8 @@ const customAlertCloseBtn = document.getElementById('custom-alert-close');
 const zoomInBtn = document.getElementById('zoom-in-btn');
 const zoomOutBtn = document.getElementById('zoom-out-btn');
 const centerMapBtn = document.getElementById('center-map-btn');
+const playerAliasBar = document.getElementById('player-alias-bar'); // New bottom bar element
+const playerLevelBar = document.getElementById('player-level-bar'); // New bottom bar element
 // Shop Modal Elements - Moved inside DOMContentLoaded
 
 
@@ -121,11 +123,12 @@ function updateExperienceUI() {
     const experienceSpan = document.getElementById('stats-experience');
     const expNeededSpan = document.getElementById('stats-exp-needed');
 
-    if (levelSpan) levelSpan.textContent = playerLevel; // From gameWorld.js
-    if (experienceSpan) experienceSpan.textContent = playerExperience; // From gameWorld.js
-    if (expNeededSpan) expNeededSpan.textContent = calculateExpNeeded(playerLevel); // Use function from gameWorld.js
+    if (levelSpan) levelSpan.textContent = playerLevel;
+    if (experienceSpan) experienceSpan.textContent = playerExperience;
+    if (expNeededSpan) expNeededSpan.textContent = calculateExpNeeded(playerLevel);
 
-    // No console log here, as it's called frequently during level ups
+    // Update bottom bar level display
+    if (playerLevelBar) playerLevelBar.textContent = `Level: ${playerLevel}`;
 }
 
 
@@ -377,6 +380,8 @@ function saveUserInfo() {
 
     // Re-render protection book in case alias changed
     updateProtectionBookUI();
+    // Update bottom bar alias display
+    if (playerAliasBar) playerAliasBar.textContent = playerAlias || 'Alias';
 }
 
 function loadUserInfo() {
@@ -388,10 +393,12 @@ function loadUserInfo() {
         usernameInput.readOnly = true; // Lock the input if loaded from storage
         console.log("Username loaded from storage and input locked.");
     }
-    if (savedAlias && aliasInput) { // Check if input exists too
-        playerAlias = savedAlias; // Update global var
+    if (savedAlias && aliasInput) {
+        playerAlias = savedAlias;
         aliasInput.value = playerAlias;
     }
+    // Update bottom bar alias display on load
+    if (playerAliasBar) playerAliasBar.textContent = playerAlias || 'Alias';
     console.log(`Loaded User Info - Username: ${playerUsername}, Alias: ${playerAlias}`);
 }
 
@@ -930,22 +937,17 @@ if (saveUserInfoBtn) {
 
 // --- Modal Logic (Wrapped in DOMContentLoaded) ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Get references to modal elements *after* DOM is loaded
-    const statsModal = document.getElementById('stats-modal');
-    const openStatsBtn = document.getElementById('open-stats-btn');
-    const closeStatsBtn = document.getElementById('close-stats-btn');
+    // Get references to elements needed immediately or frequently
+    const inventoryListElement = document.querySelector('#inventory-modal #inventory-list'); // Needed for item usage listener
+    const battleModal = document.getElementById('battle-modal'); // Needed for close button listener
+    const battleCloseBtn = document.getElementById('battle-close-btn'); // Needed for close button listener
 
-    const equipmentModal = document.getElementById('equipment-modal');
-    const openEquipmentBtn = document.getElementById('open-equipment-btn');
-    const closeEquipmentBtn = document.getElementById('close-equipment-btn');
-
-    const inventoryModal = document.getElementById('inventory-modal');
-    const openInventoryBtn = document.getElementById('open-inventory-btn');
-    const closeInventoryBtn = document.getElementById('close-inventory-btn');
-    const inventoryListElement = document.querySelector('#inventory-modal #inventory-list');
-
-    const battleModal = document.getElementById('battle-modal');
-    const battleCloseBtn = document.getElementById('battle-close-btn');
+    // Get references to new bottom bar action buttons
+    const actionUserInfoBtn = document.getElementById('action-userinfo-btn');
+    const actionStatsBtn = document.getElementById('action-stats-btn');
+    const actionEquipmentBtn = document.getElementById('action-equipment-btn');
+    const actionInventoryBtn = document.getElementById('action-inventory-btn');
+    const dashboardElement = document.getElementById('dashboard'); // Need dashboard element ref
 
     // Get Shop Modal elements here
     const shopModalElement = document.getElementById('shop-modal');
@@ -954,79 +956,118 @@ document.addEventListener('DOMContentLoaded', () => {
     const shopSellListElement = document.getElementById('shop-sell-list');
 
 
-    // --- Stats Info Modal Elements & Listeners ---
-    if (statsModal && openStatsBtn && closeStatsBtn) {
+    // --- Stats Info Modal Listeners (Get elements inside listener) ---
+    const openStatsBtn = document.getElementById('open-stats-btn'); // Old button ID, might be null now
+    const closeStatsBtn = document.getElementById('close-stats-btn');
+    const statsModal = document.getElementById('stats-modal'); // Get modal ref for background click
+
+    // Listener for the *old* dashboard button (if it still exists)
+    if (openStatsBtn) {
         openStatsBtn.addEventListener('click', () => {
-            updateStatsModalUI(); // Update content before showing
-            statsModal.classList.remove('modal-hidden');
-            console.log("Stats modal opened.");
+            const statsModal = document.getElementById('stats-modal'); // Get modal fresh
+            if (statsModal) {
+                updateStatsModalUI();
+                statsModal.classList.remove('modal-hidden');
+                console.log("Stats modal opened (old button).");
+            } else { console.error("Stats modal not found on open click (old button)."); }
         });
+    }
+    // Listener for the close button
+    if (closeStatsBtn) {
         closeStatsBtn.addEventListener('click', () => {
-            statsModal.classList.add('modal-hidden');
+            const statsModal = document.getElementById('stats-modal'); // Get modal fresh
+            if (statsModal) statsModal.classList.add('modal-hidden');
             console.log("Stats modal closed (button).");
         });
+    }
+    // Listener for background click
+    if (statsModal) {
         statsModal.addEventListener('click', (event) => {
             if (event.target === statsModal) {
                 statsModal.classList.add('modal-hidden');
                 console.log("Stats modal closed (background).");
             }
         });
-    } else {
-        console.error("Could not find all stats modal elements:", { modal: !!statsModal, openBtn: !!openStatsBtn, closeBtn: !!closeStatsBtn });
     }
 
-    // --- Equipment Modal Elements & Listeners ---
-    if (equipmentModal && openEquipmentBtn && closeEquipmentBtn) {
+    // --- Equipment Modal Listeners (Get elements inside listener) ---
+    const openEquipmentBtn = document.getElementById('open-equipment-btn'); // Old button ID
+    const closeEquipmentBtn = document.getElementById('close-equipment-btn');
+    const equipmentModal = document.getElementById('equipment-modal'); // Get modal ref for background click
+
+    // Listener for the *old* dashboard button
+    if (openEquipmentBtn) {
         openEquipmentBtn.addEventListener('click', () => {
-            equipmentModal.classList.remove('modal-hidden');
-            // TODO: Populate modal with current equipment data when opening (Requires equipment logic)
-            console.log("Equipment modal opened.");
+            const equipmentModal = document.getElementById('equipment-modal'); // Get modal fresh
+            if (equipmentModal) {
+                equipmentModal.classList.remove('modal-hidden');
+                console.log("Equipment modal opened (old button).");
+            } else { console.error("Equipment modal not found on open click (old button)."); }
         });
+    }
+    // Listener for the close button
+    if (closeEquipmentBtn) {
         closeEquipmentBtn.addEventListener('click', () => {
-            equipmentModal.classList.add('modal-hidden');
+            const equipmentModal = document.getElementById('equipment-modal'); // Get modal fresh
+            if (equipmentModal) equipmentModal.classList.add('modal-hidden');
             console.log("Equipment modal closed (button).");
         });
+    }
+    // Listener for background click
+    if (equipmentModal) {
         equipmentModal.addEventListener('click', (event) => {
             if (event.target === equipmentModal) {
                 equipmentModal.classList.add('modal-hidden');
                 console.log("Equipment modal closed (background).");
             }
         });
-    } else {
-        console.error("Could not find all equipment modal elements:", { modal: !!equipmentModal, openBtn: !!openEquipmentBtn, closeBtn: !!closeEquipmentBtn });
     }
 
-    // --- Inventory Modal Elements & Listeners ---
-    if (inventoryModal && openInventoryBtn && closeInventoryBtn && inventoryListElement) {
+    // --- Inventory Modal Listeners (Get elements inside listener) ---
+    const openInventoryBtn = document.getElementById('open-inventory-btn'); // Old button ID
+    const closeInventoryBtn = document.getElementById('close-inventory-btn');
+    const inventoryModal = document.getElementById('inventory-modal'); // Get modal ref for background click
+
+    // Listener for the *old* dashboard button
+    if (openInventoryBtn) {
         openInventoryBtn.addEventListener('click', () => {
-            updateInventoryUI(); // Update list content *before* showing
-            inventoryModal.classList.remove('modal-hidden');
-            console.log("Inventory modal opened.");
+            const inventoryModal = document.getElementById('inventory-modal'); // Get modal fresh
+            if (inventoryModal) {
+                updateInventoryUI();
+                inventoryModal.classList.remove('modal-hidden');
+                console.log("Inventory modal opened (old button).");
+            } else { console.error("Inventory modal not found on open click (old button)."); }
         });
+    }
+    // Listener for the close button
+    if (closeInventoryBtn) {
         closeInventoryBtn.addEventListener('click', () => {
-            inventoryModal.classList.add('modal-hidden');
+            const inventoryModal = document.getElementById('inventory-modal'); // Get modal fresh
+            if (inventoryModal) inventoryModal.classList.add('modal-hidden');
             console.log("Inventory modal closed (button).");
         });
+    }
+    // Listener for background click
+    if (inventoryModal) {
         inventoryModal.addEventListener('click', (event) => {
             if (event.target === inventoryModal) {
                 inventoryModal.classList.add('modal-hidden');
                 console.log("Inventory modal closed (background).");
             }
         });
+    }
 
-        // Item usage listener
+    // Item usage listener (needs list element from earlier)
+    if (inventoryListElement) {
         inventoryListElement.addEventListener('click', (event) => {
             if (event.target.tagName === 'LI' && event.target.dataset.itemId) {
                 const itemId = event.target.dataset.itemId;
                 console.log(`Clicked on inventory item: ${itemId}`);
-                // Call the useItem function from gameWorld.js
-                useItem(itemId);
                 // Note: useItem handles alerts and inventory updates internally
             }
         });
-
     } else {
-        console.error("Could not find all inventory modal elements:", { modal: !!inventoryModal, openBtn: !!openInventoryBtn, closeBtn: !!closeInventoryBtn, list: !!inventoryListElement });
+        console.error("Inventory list element not found for item usage listener.");
     }
 
     // --- Battle Modal Close Button ---
@@ -1062,12 +1103,103 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    // --- New Bottom Bar Action Button Listeners ---
+    if (actionUserInfoBtn && dashboardElement) {
+        actionUserInfoBtn.addEventListener('click', () => {
+            // Toggle dashboard visibility
+            const isMinimized = dashboardElement.classList.contains('minimized');
+            const showBtn = document.getElementById('show-dashboard-btn'); // Get the corresponding show button
+            if (isMinimized) {
+                dashboardElement.classList.remove('minimized');
+                dashboardElement.style.display = 'block';
+                if (showBtn) showBtn.style.display = 'none';
+                console.log("Dashboard shown via bottom bar button.");
+            } else {
+                dashboardElement.classList.add('minimized');
+                dashboardElement.style.display = 'none';
+                if (showBtn) showBtn.style.display = 'block';
+                console.log("Dashboard hidden via bottom bar button.");
+            }
+        });
+    } else {
+        console.error("Could not find User Info action button or dashboard element:", { btn: !!actionUserInfoBtn, dashboard: !!dashboardElement });
+    }
+
+    // Listener for the NEW Stats button
+    if (actionStatsBtn) {
+        actionStatsBtn.addEventListener('click', () => {
+            const statsModal = document.getElementById('stats-modal'); // Get modal fresh
+            if (statsModal) {
+                updateStatsModalUI();
+                statsModal.classList.remove('modal-hidden');
+                console.log("Stats modal opened via bottom bar button.");
+            } else { console.error("Stats modal not found on open click (bottom bar)."); }
+        });
+    } else {
+        console.error("Could not find Stats action button.");
+    }
+
+    // Listener for the NEW Equipment button
+    if (actionEquipmentBtn) {
+        actionEquipmentBtn.addEventListener('click', () => {
+            const equipmentModal = document.getElementById('equipment-modal'); // Get modal fresh
+            if (equipmentModal) {
+                equipmentModal.classList.remove('modal-hidden');
+                // TODO: Populate modal with current equipment data when opening
+                console.log("Equipment modal opened via bottom bar button.");
+            } else { console.error("Equipment modal not found on open click (bottom bar)."); }
+        });
+    } else {
+        console.error("Could not find Equipment action button.");
+    }
+
+    // Listener for the NEW Inventory button
+    if (actionInventoryBtn) {
+        actionInventoryBtn.addEventListener('click', () => {
+            const inventoryModal = document.getElementById('inventory-modal'); // Get modal fresh
+            if (inventoryModal) {
+                updateInventoryUI();
+                inventoryModal.classList.remove('modal-hidden');
+                console.log("Inventory modal opened via bottom bar button.");
+            } else { console.error("Inventory modal not found on open click (bottom bar)."); }
+        });
+    } else {
+        console.error("Could not find Inventory action button.");
+    }
+
+    if (actionInventoryBtn && inventoryModal) {
+        actionInventoryBtn.addEventListener('click', () => {
+            updateInventoryUI(); // Update list content *before* showing
+            inventoryModal.classList.remove('modal-hidden');
+            console.log("Inventory modal opened via bottom bar button.");
+        });
+    } else {
+        console.error("Could not find Inventory action button or modal:", { btn: !!actionInventoryBtn, modal: !!inventoryModal });
+    }
+
+
     // --- Initial UI Setup ---
-    loadUserInfo(); // Load username/alias first
+    loadUserInfo(); // Load username/alias first (this now also updates bottom bar alias)
     updateOrganizationUI(); // Update based on initial state (likely 'None')
     updateCashUI(currentCash); // Show initial cash (0)
     calculateCharacterStats(); // Calculate initial stats including Max HP (from gameWorld.js)
     updateHpUI(); // Show initial HP
     updateExperienceUI(); // Show initial EXP/Level
+
+    // Attach the map popup listener here, ensuring map and function are defined
+    if (map && typeof handlePopupOpenForActions === 'function') {
+        map.on('popupopen', handlePopupOpenForActions);
+        console.log("Map popup listener attached in uiManager.");
+    } else {
+        // Add a small delay and retry, as map might not be ready exactly when DOMContentLoaded fires
+        setTimeout(() => {
+            if (map && typeof handlePopupOpenForActions === 'function') {
+                map.on('popupopen', handlePopupOpenForActions);
+                console.log("Map popup listener attached in uiManager (after delay).");
+            } else {
+                 console.error("Could not attach map popup listener after delay: map or handlePopupOpenForActions not ready.");
+            }
+        }, 500); // Retry after 500ms
+    }
 
 }); // Close DOMContentLoaded listener
