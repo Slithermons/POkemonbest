@@ -12,6 +12,13 @@ let currentBattle = {
     autoAttackTimeoutId: null // Added for auto-attack delay management
 };
 
+// --- Battle Simulation Image Paths ---
+const battleImagePaths = [
+    'img/fight1.jpg',
+    'img/fight2.jpg',
+    'img/fight3.jpg'
+];
+
 // --- Utility Functions ---
 
 function showBattleModal() {
@@ -25,8 +32,9 @@ function showBattleModal() {
 
 function hideBattleModal() {
     const battleModal = document.getElementById('battle-modal');
-    // Stop auto-attack if modal is closed manually
+    // Stop auto-attack and ensure image is hidden when modal closes
     stopAutoAttack();
+    hideBattleImage();
     if (battleModal) {
         battleModal.classList.add('modal-hidden');
     } else {
@@ -132,10 +140,48 @@ function showShootoutVisual() {
     }
 }
 
+// --- Battle Image Display ---
+let battleImageTimeoutId = null; // Timeout to hide the image
+
+function showRandomBattleImage() {
+    const imgElement = document.getElementById('battle-simulation-image');
+    if (!imgElement || battleImagePaths.length === 0) return;
+
+    // Clear any existing timeout to hide the image
+    if (battleImageTimeoutId) {
+        clearTimeout(battleImageTimeoutId);
+        battleImageTimeoutId = null;
+    }
+
+    // Pick a random image
+    const randomIndex = Math.floor(Math.random() * battleImagePaths.length);
+    imgElement.src = battleImagePaths[randomIndex];
+    imgElement.style.display = 'block'; // Make it visible
+
+    // Set a timeout to hide the image after a short duration (e.g., 1 second)
+    battleImageTimeoutId = setTimeout(hideBattleImage, 1000);
+}
+
+function hideBattleImage() {
+     // Clear any pending timeout
+     if (battleImageTimeoutId) {
+        clearTimeout(battleImageTimeoutId);
+        battleImageTimeoutId = null;
+    }
+    // Hide the image element
+    const imgElement = document.getElementById('battle-simulation-image');
+    if (imgElement) {
+        imgElement.style.display = 'none';
+        imgElement.src = ""; // Clear src
+    }
+}
+
+
 // --- Core Battle Logic ---
 
-// Function to initiate a battle (called from script.js)
-function initiateBattle(playerStats, enemyData) {
+// Function to initiate a battle (called from uiManager.js or elsewhere)
+// Expects playerCharacterStats (implicitly via globals) and the full enemy object instance
+function initiateBattle(playerBattleStats_IGNORED, enemyData) { // playerBattleStats_IGNORED is no longer needed, we use globals
     // --- Get Modal Element References ---
     const battleModal = document.getElementById('battle-modal');
     const battlePlayerName = document.getElementById('battle-player-name');
@@ -149,17 +195,29 @@ function initiateBattle(playerStats, enemyData) {
     const battleAutoAttackBtn = document.getElementById('battle-auto-attack-btn');
 
     // Check if essential elements exist before proceeding
-    if (!battleModal || !playerStats || !enemyData || !battlePlayerName || !battleEnemyName || !battleLogDiv || !battleResultDiv || !battleAutoAttackBtn) {
-        console.error("Cannot initiate battle: Missing required modal elements, player stats, or enemy data.");
+    // Note: We now use global playerCharacterStats and playerCurrentHp
+    if (!battleModal || !enemyData || !battlePlayerName || !battleEnemyName || !battleLogDiv || !battleResultDiv || !battleAutoAttackBtn) {
+        console.error("Cannot initiate battle: Missing required modal elements or enemy data.");
         return;
     }
 
-    // Reset battle state
+     // Ensure playerCharacterStats is calculated before battle starts
+     // This should ideally be done *before* calling initiateBattle, e.g., in the click handler
+     calculateCharacterStats(); // Recalculate just in case
+
+    // Reset battle state using calculated stats from gameWorld.js
     currentBattle = {
-        player: { ...playerStats },
-        enemy: { ...enemyData },
-        playerCurrentHp: playerStats.health,
-        enemyCurrentHp: enemyData.health,
+        player: { // Structure player battle data using calculated stats
+            name: playerAlias || playerUsername || "Player", // Use global alias/username
+            health: playerCharacterStats.maxHp, // Use calculated max HP
+            damage: playerCharacterStats.damage, // Use calculated damage
+            defence: playerCharacterStats.defence, // Use calculated defence
+            evasionRate: playerCharacterStats.evasionRate, // Use calculated evasion
+            criticalRate: playerCharacterStats.criticalRate // Use calculated crit rate
+        },
+        enemy: enemyData, // Store the actual Enemy object instance directly
+        playerCurrentHp: playerCurrentHp, // Use the current global player HP
+        enemyCurrentHp: enemyData.health, // Enemy starts at full health
         isPlayerTurn: true,
         gameOver: false,
         isAutoAttackActive: false, // Reset auto-attack
@@ -176,14 +234,15 @@ function initiateBattle(playerStats, enemyData) {
     // --- Initialize Modal UI ---
     battlePlayerName.textContent = currentBattle.player.name;
     battleEnemyName.textContent = currentBattle.enemy.name;
-    if (battlePlayerMaxHp) battlePlayerMaxHp.textContent = currentBattle.player.health;
-    if (battleEnemyMaxHp) battleEnemyMaxHp.textContent = currentBattle.enemy.health;
-    updateHealthUI();
+    if (battlePlayerMaxHp) battlePlayerMaxHp.textContent = Math.round(currentBattle.player.health); // Use player's max health
+    if (battleEnemyMaxHp) battleEnemyMaxHp.textContent = Math.round(currentBattle.enemy.health); // Use enemy's max health
+    updateHealthUI(); // Update bars based on current HP
     const logTitle = battleLogDiv.querySelector('p');
     battleLogDiv.innerHTML = '';
     if (logTitle) battleLogDiv.appendChild(logTitle);
     battleResultDiv.style.display = 'none';
     enableActions(); // Enable buttons for the start
+    hideBattleImage(); // Ensure image is hidden when battle initializes
 
     addLogEntry(`Battle started: ${currentBattle.player.name} vs ${currentBattle.enemy.name}!`, 'info');
     addLogEntry(`${currentBattle.player.name}'s turn...`, 'info'); // Indicate player starts
@@ -196,18 +255,28 @@ function initiateBattle(playerStats, enemyData) {
     }
 
     showBattleModal();
+    startBattleImageCycle(); // Start image cycling when battle begins
 }
 
-// Function to calculate and return damage dealt
+// Function to calculate base damage dealt (before critical)
+// Now uses .damage/.attack and .defence/.defense properties depending on player/enemy
 function calculateDamage(attacker, defender) {
-    const attackerAttack = attacker.attack || 5;
-    const defenderDefense = defender.defense || 0;
-    let baseDamage = attackerAttack * 0.5;
-    let damageReduction = defenderDefense * 0.25;
-    let effectiveDamage = Math.max(1, baseDamage - damageReduction);
+    // Use .damage for player, .attack for the enemy instance
+    const attackerDamageStat = attacker === currentBattle.player ? attacker.damage : attacker.attack;
+    // Use .defence for player, .defense for the enemy instance
+    const defenderDefenceStat = defender === currentBattle.player ? defender.defence : defender.defense;
+
+    // Simple formula: Damage = Attacker's Damage Stat - Defender's Defence Stat * ReductionFactor
+    // Ensure damage is at least 1. Add some randomness.
+    const defenceReduction = defenderDefenceStat * 0.5; // Example: Defence reduces damage by 50% of its value
+    let baseDamage = Math.max(1, attackerDamageStat - defenceReduction);
+
+    // Add randomness (+/- 25%)
     const randomMultiplier = 0.75 + Math.random() * 0.5; // Range: 0.75 to 1.25
-    let finalDamage = Math.round(effectiveDamage * randomMultiplier);
-    finalDamage = Math.max(1, finalDamage);
+    let finalDamage = Math.round(baseDamage * randomMultiplier);
+
+    finalDamage = Math.max(1, finalDamage); // Ensure minimum damage of 1
+    // console.log(`${attacker.name} base damage calc: DmgStat=${attackerDamageStat}, DefStat=${defenderDefenceStat}, Reduced=${defenceReduction}, Base=${baseDamage.toFixed(1)}, Final=${finalDamage}`);
     return finalDamage;
 }
 
@@ -227,11 +296,34 @@ function playerTurn() {
     if (typeof playRandomBattleSound === 'function') {
         playRandomBattleSound();
     }
-    const damageDealt = calculateDamage(currentBattle.player, currentBattle.enemy);
-    currentBattle.enemyCurrentHp -= damageDealt;
-    addLogEntry(`${currentBattle.player.name} attacks ${currentBattle.enemy.name} for ${damageDealt} damage.`, 'player');
-    updateHealthUI();
 
+    // --- Evasion Check ---
+    const enemyEvasionRate = currentBattle.enemy.evasionRate || 0;
+    if (Math.random() * 100 < enemyEvasionRate) {
+        addLogEntry(`${currentBattle.enemy.name} evaded ${currentBattle.player.name}'s attack!`, 'enemy');
+        hideBattleImage(); // Hide image on miss
+    } else {
+        // --- Attack Hits ---
+        showRandomBattleImage(); // Show image on hit
+        // --- Critical Hit Check ---
+        const playerCriticalRate = currentBattle.player.criticalRate || 0;
+        const isCritical = Math.random() * 100 < playerCriticalRate;
+        const critMultiplier = 1.5; // Example: 1.5x damage on crit
+
+        let damageDealt = calculateDamage(currentBattle.player, currentBattle.enemy);
+
+        if (isCritical) {
+            damageDealt = Math.round(damageDealt * critMultiplier);
+            addLogEntry(`Critical Hit! ${currentBattle.player.name} attacks ${currentBattle.enemy.name} for ${damageDealt} damage.`, 'player');
+        } else {
+            addLogEntry(`${currentBattle.player.name} attacks ${currentBattle.enemy.name} for ${damageDealt} damage.`, 'player');
+        }
+
+        currentBattle.enemyCurrentHp -= damageDealt;
+        updateHealthUI();
+    }
+
+    // --- Check for Enemy Defeat ---
     if (currentBattle.enemyCurrentHp <= 0) {
         endBattle(true); // Player wins
     } else {
@@ -250,11 +342,34 @@ function enemyTurn() {
     if (typeof playRandomBattleSound === 'function') {
         playRandomBattleSound();
     }
-    const damageDealt = calculateDamage(currentBattle.enemy, currentBattle.player);
-    currentBattle.playerCurrentHp -= damageDealt;
-    addLogEntry(`${currentBattle.enemy.name} attacks ${currentBattle.player.name} for ${damageDealt} damage.`, 'enemy');
-    updateHealthUI();
 
+    // --- Evasion Check ---
+    const playerEvasionRate = currentBattle.player.evasionRate || 0;
+    if (Math.random() * 100 < playerEvasionRate) {
+        addLogEntry(`${currentBattle.player.name} evaded ${currentBattle.enemy.name}'s attack!`, 'player');
+        hideBattleImage(); // Hide image on miss
+    } else {
+        // --- Attack Hits ---
+        showRandomBattleImage(); // Show image on hit
+        // --- Critical Hit Check ---
+        const enemyCriticalRate = currentBattle.enemy.criticalRate || 0;
+        const isCritical = Math.random() * 100 < enemyCriticalRate;
+        const critMultiplier = 1.5;
+
+        let damageDealt = calculateDamage(currentBattle.enemy, currentBattle.player);
+
+        if (isCritical) {
+            damageDealt = Math.round(damageDealt * critMultiplier);
+            addLogEntry(`Critical Hit! ${currentBattle.enemy.name} attacks ${currentBattle.player.name} for ${damageDealt} damage.`, 'enemy');
+        } else {
+            addLogEntry(`${currentBattle.enemy.name} attacks ${currentBattle.player.name} for ${damageDealt} damage.`, 'enemy');
+        }
+
+        currentBattle.playerCurrentHp -= damageDealt;
+        updateHealthUI();
+    }
+
+     // --- Check for Player Defeat ---
     if (currentBattle.playerCurrentHp <= 0) {
         endBattle(false); // Player loses
     } else {
@@ -288,7 +403,8 @@ function attemptFlee() {
             addLogEntry("Successfully fled from battle!", 'result');
             currentBattle.gameOver = true; // End battle state
             // Don't call endBattle() as it implies win/loss
-            // Restart BGM on successful flee before closing modal
+            // Restart BGM and hide image on successful flee
+            hideBattleImage(); // Hide image
             if (typeof playBgm === 'function') {
                 playBgm();
             } else {
@@ -362,6 +478,7 @@ function stopAutoAttack() {
 function endBattle(playerWon) {
     currentBattle.gameOver = true;
     stopAutoAttack(); // Ensure auto-attack is stopped
+    hideBattleImage(); // Ensure image is hidden on battle end
     disableActions(true); // Disable all actions
 
     // Get result elements

@@ -179,16 +179,16 @@
 
     <!-- Inventory Modal -->
     <div id="inventory-modal" class="modal-hidden">
-        <div class="modal-content">
+        <div class="modal-content inventory-modal-content"> <!-- Added class for specific styling -->
             <span class="close-btn" id="close-inventory-btn">&times;</span>
-            <h2>Inventory</h2>
-            <div class="inventory-modal-content">
-                 <ul id="inventory-list">
-                    <!-- Items will be listed here by JS -->
-                    <li>(Empty)</li>
-                </ul>
-                <!-- Maybe add filters or sorting options later -->
+            <h2 class="inventory-title">Inventory</h2> <!-- Added class for styling -->
+            <div class="inventory-grid" id="inventory-grid">
+                <!-- Inventory slots will be added here by JS -->
+                <!-- Example slot structure (will be generated dynamically): -->
+                <!-- <div class="inventory-slot"></div> -->
             </div>
+            <!-- Item details area (optional, can be added later) -->
+            <!-- <div id="inventory-item-details"></div> -->
         </div>
     </div>
 
@@ -219,6 +219,7 @@
                     <p><strong>Defence:</strong> <span id="stats-defence">0</span></p>
                     <p><strong>Evasion Rate (%):</strong> <span id="stats-evasionRate">0</span></p>
                     <p><strong>Critical Rate (%):</strong> <span id="stats-criticalRate">0</span></p>
+                    <p><strong>Damage:</strong> <span id="stats-damage">0</span></p> <!-- Added Damage Stat -->
                 </div>
             </div>
         </div>
@@ -289,6 +290,11 @@
                 <button id="battle-attack-btn" class="btn btn-red">Attack</button>
                 <button id="battle-auto-attack-btn" class="btn btn-blue" data-active="false">Auto Attack</button>
                 <button id="battle-flee-btn" class="btn btn-grey">Flee</button> <!-- Enabled -->
+            </div>
+
+            <!-- Battle Simulation Image -->
+            <div class="battle-image-container">
+                 <img id="battle-simulation-image" src="" alt="Battle Simulation" style="display: none;"> <!-- Initially hidden -->
             </div>
 
             <!-- Battle Log -->

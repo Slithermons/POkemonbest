@@ -32,7 +32,10 @@ class Enemy {
 
         this.marker.enemyId = this.id; // Store ID on marker for easy access in events (optional but can be useful)
 
-        console.log(`Created ${this.name} at (${this.lat.toFixed(5)}, ${this.lon.toFixed(5)}) with power ${this.power}`);
+        // Add the new enemy instance to the global array
+        enemies.push(this);
+
+        console.log(`Created ${this.name} (ID: ${this.id}) at (${this.lat.toFixed(5)}, ${this.lon.toFixed(5)}) with power ${this.power}`);
     }
 
     setTypeAndProperties() {
@@ -178,40 +181,101 @@ class Enemy {
     }
 }
 
-// Global array to hold enemy instances
+// Global array to hold enemy instances - Initialized here
 let enemies = [];
 
-// Function to spawn enemies around a central point
-function spawnEnemies(count, centerLat, centerLon, radiusDegrees, layerGroup) {
-    // Clear existing enemies
-    enemies.forEach(enemy => enemy.remove());
-    enemies = [];
-    if (!layerGroup) {
-        console.error("Enemy layer group not provided to spawnEnemies!");
+// --- Proximity Management for Associates ---
+const ASSOCIATE_PROXIMITY_RADIUS = 150; // meters
+const ASSOCIATE_SPAWN_MIN_RADIUS = 100; // meters (min distance to spawn from player)
+const ASSOCIATE_SPAWN_MAX_RADIUS = 150; // meters (max distance to spawn from player)
+const ASSOCIATE_CHECK_INTERVAL = 5000; // Check every 5 seconds
+
+let associateCheckIntervalId = null;
+
+function manageAssociatesProximity() {
+    if (!currentUserLocation || !enemyLayer) {
+        // console.log("Skipping associate check: No player location or enemy layer.");
         return;
     }
-    enemyLayer = layerGroup; // Store reference if needed globally here
 
-    console.log(`Spawning ${count} enemies around [${centerLat.toFixed(5)}, ${centerLon.toFixed(5)}] within ${radiusDegrees} degrees.`);
+    let nearbyAssociatesCount = 0;
+    enemies.forEach(enemy => {
+        if (enemy.name === "Associates") {
+            const distance = calculateDistance(currentUserLocation.lat, currentUserLocation.lon, enemy.lat, enemy.lon);
+            if (distance <= ASSOCIATE_PROXIMITY_RADIUS) {
+                nearbyAssociatesCount++;
+            }
+        }
+    });
 
-    for (let i = 0; i < count; i++) {
-        // Generate random point within a circular radius
-        const randomAngle = Math.random() * 2 * Math.PI;
-        // Use sqrt(random) for more uniform distribution within the circle
-        const randomRadius = radiusDegrees * Math.sqrt(Math.random());
+    // console.log(`Nearby Associates (${ASSOCIATE_PROXIMITY_RADIUS}m): ${nearbyAssociatesCount}`); // Debug log
 
-        // Calculate new coordinates
-        // Note: This is an approximation, more accurate for smaller radii.
-        // For longitude, adjust based on latitude to account for map projection distortion.
-        const lat = centerLat + randomRadius * Math.sin(randomAngle);
-        const lon = centerLon + randomRadius * Math.cos(randomAngle) / Math.cos(centerLat * Math.PI / 180);
+    if (nearbyAssociatesCount === 0) {
+        console.log("No nearby Associates found. Spawning one.");
+        spawnSingleAssociateNearPlayer(currentUserLocation.lat, currentUserLocation.lon, enemyLayer);
+    }
+    // Optional: Could add logic here to spawn a second one if count is 1, maybe with a lower chance.
+    // else if (nearbyAssociatesCount === 1 && Math.random() < 0.2) { // e.g., 20% chance to spawn a second
+    //     console.log("One nearby Associate found. Spawning another.");
+    //     spawnSingleAssociateNearPlayer(currentUserLocation.lat, currentUserLocation.lon, enemyLayer);
+    // }
+}
 
-        // TODO: Add check here to prevent spawning on water (requires external data or service)
-        // For now, spawn anywhere within radius.
+function spawnSingleAssociateNearPlayer(centerLat, centerLon, layerGroup) {
+    // Spawn slightly away from the player
+    const spawnAngle = Math.random() * 2 * Math.PI;
+    const spawnRadiusMeters = ASSOCIATE_SPAWN_MIN_RADIUS + Math.random() * (ASSOCIATE_SPAWN_MAX_RADIUS - ASSOCIATE_SPAWN_MIN_RADIUS);
+    const metersPerDegreeLat = 111320; // Approximate meters per degree latitude
+    const metersPerDegreeLon = metersPerDegreeLat * Math.cos(centerLat * Math.PI / 180);
 
-        enemies.push(new Enemy(lat, lon, layerGroup));
+    const latOffset = (spawnRadiusMeters * Math.sin(spawnAngle)) / metersPerDegreeLat;
+    const lonOffset = (spawnRadiusMeters * Math.cos(spawnAngle)) / metersPerDegreeLon;
+
+    const spawnLat = centerLat + latOffset;
+    const spawnLon = centerLon + lonOffset;
+
+    // Create an enemy instance - it will add itself to the 'enemies' array via constructor
+    const newAssociate = new Enemy(spawnLat, spawnLon, layerGroup);
+    // Force type to Associates for this specific spawn function
+    newAssociate.name = "Associates";
+    newAssociate.power = Math.floor(Math.random() * (120 - 40 + 1)) + 40;
+    newAssociate.experienceRate = Math.floor(Math.random() * (15 - 5 + 1)) + 5;
+    newAssociate.spriteSheet = 'img/associates.png';
+    newAssociate.health = Math.max(10, Math.floor(newAssociate.power * 1.5 * (0.8 + Math.random() * 0.4)));
+    newAssociate.attack = Math.max(1, Math.floor(newAssociate.power / 8 * (0.8 + Math.random() * 0.4)));
+    newAssociate.defense = Math.max(0, Math.floor(newAssociate.power / 15 * (0.8 + Math.random() * 0.4)));
+    newAssociate.defineLootTable(); // Redefine loot based on forced type
+
+    // Update the marker popup content if needed (optional, constructor might be sufficient)
+    // newAssociate.marker.setPopupContent(`<b>${newAssociate.name}</b><br>Power: ${newAssociate.power}<br><button class="interact-enemy-button" data-enemy-id="${newAssociate.id}">Interact</button>`);
+
+    // Ensure visibility check runs soon after spawn if needed
+    if (typeof updateMarkersVisibility === 'function' && currentUserLocation) {
+        updateMarkersVisibility(currentUserLocation.lat, currentUserLocation.lon);
     }
 }
+
+function startAssociateProximityChecks() {
+    if (associateCheckIntervalId) {
+        clearInterval(associateCheckIntervalId);
+    }
+    console.log(`Starting Associate proximity check interval (${ASSOCIATE_CHECK_INTERVAL}ms)`);
+    associateCheckIntervalId = setInterval(manageAssociatesProximity, ASSOCIATE_CHECK_INTERVAL);
+    // Run initial check immediately
+    manageAssociatesProximity();
+}
+
+function stopAssociateProximityChecks() {
+     if (associateCheckIntervalId) {
+        clearInterval(associateCheckIntervalId);
+        associateCheckIntervalId = null;
+        console.log("Stopped Associate proximity checks.");
+    }
+}
+
+// OLD spawnEnemies function REMOVED as it conflicts with the new logic.
+// // Function to spawn enemies around a central point
+// function spawnEnemies(count, centerLat, centerLon, radiusDegrees, layerGroup) { ... }
 
 // Function to find enemy by ID
 function findEnemyById(id) {
@@ -219,7 +283,7 @@ function findEnemyById(id) {
 }
 
 
-// Enemy movement interval (will be started in script.js)
+// Enemy movement interval (will be started in initialization.js)
 let enemyMoveInterval = null;
 
 function startEnemyMovement(intervalMs = 2000) { // Move every 2 seconds default
@@ -228,7 +292,11 @@ function startEnemyMovement(intervalMs = 2000) { // Move every 2 seconds default
     }
     console.log(`Starting enemy movement interval (${intervalMs}ms)`);
     enemyMoveInterval = setInterval(() => {
-        enemies.forEach(enemy => enemy.move());
+        // Only move enemies that are currently visible/relevant? Or all? Move all for now.
+        enemies.forEach(enemy => {
+            // Optional: Add check if enemy is within a larger radius before moving
+            enemy.move()
+        });
     }, intervalMs);
 }
 

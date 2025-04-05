@@ -141,24 +141,30 @@ function updateCashUI(amount) {
     }
 }
 
-// Function to update the inventory UI (targets list inside the modal)
+// Function to update the inventory UI (targets grid inside the modal)
 function updateInventoryUI() {
-    // Log the inventory state *when this function is called* for debugging
-    console.log('updateInventoryUI called. Current playerInventory:', JSON.stringify(playerInventory));
+    console.log('updateInventoryUI called. Current playerInventory:', JSON.stringify(playerInventory)); // playerInventory from gameWorld.js
 
-    // Get the list element each time, as it might not exist when this function is first defined
-    const listElement = document.querySelector('#inventory-modal #inventory-list');
-    if (!listElement) {
-        // Don't error here, modal might not be open yet
-        // console.error("Inventory list element inside modal not found!");
+    const gridElement = document.getElementById('inventory-grid');
+    if (!gridElement) {
+        // Don't error here, modal might not be open or element might not exist yet
         return;
     }
 
-    listElement.innerHTML = ''; // Clear current list
+    gridElement.innerHTML = ''; // Clear current grid content
+    const totalSlots = 24; // Based on the image provided
+    let filledSlotsCount = 0;
 
-    if (playerInventory.length === 0) { // Variable from gameWorld.js
-        listElement.innerHTML = '<li>(Empty)</li>'; // Use specific text for empty
+    // Ensure databases are available
+    if (typeof itemsDatabase === 'undefined' || typeof equipmentDatabase === 'undefined') {
+        console.error("itemsDatabase or equipmentDatabase not found!");
+        gridElement.innerHTML = '<div class="inventory-slot empty">Error loading item data!</div>'; // Show error in a slot
         return;
+    }
+     // Ensure Rarity is available (defined in equipment.js)
+    if (typeof Rarity === 'undefined') {
+        console.error("Rarity object not found! Make sure equipment.js is loaded before uiManager.js");
+        // Continue without rarity styling if needed
     }
 
     // Group items by ID for display (e.g., Medkit x2)
@@ -167,63 +173,74 @@ function updateInventoryUI() {
         return acc;
     }, {});
 
-    // Ensure itemsDatabase and equipmentDatabase are available (defined in items.js/equipment.js)
-    if (typeof itemsDatabase === 'undefined' || typeof equipmentDatabase === 'undefined') {
-        console.error("itemsDatabase or equipmentDatabase not found! Make sure items.js and equipment.js are loaded before uiManager.js");
-        listElement.innerHTML = '<li>Error loading item data!</li>';
-        return;
-    }
-    // Ensure Rarity is available (defined in equipment.js)
-    if (typeof Rarity === 'undefined') {
-        console.error("Rarity object not found! Make sure equipment.js is loaded before uiManager.js");
-        // Continue without rarity styling if needed
-    }
-
-
+    // Populate slots with actual items
     for (const itemId in groupedInventory) {
-        // Check items and equipment databases
-        const itemDefinition = itemsDatabase.get(itemId) || equipmentDatabase.get(itemId); // Use the Maps
+        if (filledSlotsCount >= totalSlots) break; // Stop if grid is full
 
-        // Log the definition found for this item ID during UI update
-        // console.log(`updateInventoryUI - Item ID: ${itemId}, Found Definition:`, itemDefinition ? JSON.stringify(itemDefinition) : 'NOT FOUND'); // Keep previous log commented for now
+        const itemDefinition = itemsDatabase.get(itemId) || equipmentDatabase.get(itemId); // Use the Maps
+        const quantity = groupedInventory[itemId];
 
         if (itemDefinition) {
-            const quantity = groupedInventory[itemId];
-            // Log the specific item and quantity being processed for UI rendering
             console.log(`updateInventoryUI - Rendering item: ${itemId}, Name: ${itemDefinition.name}, Quantity: ${quantity}`);
-            const listItem = document.createElement('li');
-            listItem.textContent = `${itemDefinition.name}${quantity > 1 ? ` x${quantity}` : ''}`;
-            listItem.title = itemDefinition.description || ''; // Add tooltip
-            listItem.dataset.itemId = itemId; // Store item ID for potential click actions
+            const slotDiv = document.createElement('div');
+            slotDiv.classList.add('inventory-slot');
+            slotDiv.dataset.itemId = itemId; // Store item ID for potential click actions
+            slotDiv.title = `${itemDefinition.name}${quantity > 1 ? ` (x${quantity})` : ''}\n${itemDefinition.description || ''}`; // Tooltip
 
-            // Apply rarity color if it's equipment with rarity defined
-            if (itemDefinition.itemType === 'Equipment' && itemDefinition.rarity && itemDefinition.rarity.color && typeof Rarity !== 'undefined') {
-                 if (itemDefinition.rarity.name === Rarity.GOD_TIER.name) {
-                     // Style for God-Tier (e.g., white text with black outline)
-                     listItem.style.color = '#FFFFFF';
-                     listItem.style.textShadow = '0 0 3px #000, 0 0 3px #000, 0 0 3px #000'; // Thicker outline
-                 } else {
-                    listItem.style.color = itemDefinition.rarity.color;
-                    listItem.style.textShadow = 'none'; // Ensure no shadow for other rarities
-                 }
-                 listItem.title += ` (${itemDefinition.rarity.name})`; // Add rarity name to tooltip
+            // Add item icon if available in definition
+            if (itemDefinition.icon) {
+                const img = document.createElement('img');
+                img.src = itemDefinition.icon;
+                img.alt = itemDefinition.name;
+                slotDiv.appendChild(img);
             } else {
-                // Reset color and shadow for non-equipment or items without rarity
-                listItem.style.color = ''; // Use default text color
-                listItem.style.textShadow = 'none';
+                // Fallback text if no icon
+                slotDiv.textContent = itemDefinition.name.substring(0, 3); // Show first 3 letters?
+                slotDiv.style.fontSize = '0.7em'; // Make text small
+                slotDiv.style.textAlign = 'center';
+                slotDiv.style.lineHeight = '1';
             }
 
-            listElement.appendChild(listItem);
+            // Add quantity indicator if more than 1
+            if (quantity > 1) {
+                const countSpan = document.createElement('span');
+                countSpan.classList.add('item-count');
+                countSpan.textContent = quantity;
+                slotDiv.appendChild(countSpan);
+            }
+
+             // Apply rarity styling (e.g., border color) - Optional enhancement
+            if (itemDefinition.itemType === 'Equipment' && itemDefinition.rarity && typeof Rarity !== 'undefined') {
+                const rarityInfo = typeof itemDefinition.rarity === 'object' ? itemDefinition.rarity : Rarity[itemDefinition.rarity.toUpperCase().replace('-', '_')];
+                if (rarityInfo && rarityInfo.color) {
+                    slotDiv.style.borderColor = rarityInfo.color;
+                    slotDiv.style.boxShadow = `0 0 5px ${rarityInfo.color}`; // Add a glow effect
+                    slotDiv.title += ` (${rarityInfo.name})`; // Add rarity name to tooltip
+                }
+            }
+
+            gridElement.appendChild(slotDiv);
+            filledSlotsCount++;
         } else {
             console.warn(`Definition not found for item ID: ${itemId}`);
-            const listItem = document.createElement('li');
-            listItem.textContent = `Unknown Item (${itemId}) x${groupedInventory[itemId]}`;
-            listItem.style.color = 'red'; // Indicate an error
-            listElement.appendChild(listItem);
+            // Optionally display an error slot
+            // const errorSlot = document.createElement('div');
+            // errorSlot.classList.add('inventory-slot', 'empty');
+            // errorSlot.textContent = 'ERR';
+            // errorSlot.style.color = 'red';
+            // gridElement.appendChild(errorSlot);
+            // filledSlotsCount++;
         }
     }
-    // Log the final HTML content of the list element after population
-    console.log('updateInventoryUI finished. Final listElement HTML:', listElement.innerHTML);
+
+    // Fill remaining slots with empty placeholders
+    for (let i = filledSlotsCount; i < totalSlots; i++) {
+        const emptySlot = document.createElement('div');
+        emptySlot.classList.add('inventory-slot', 'empty');
+        gridElement.appendChild(emptySlot);
+    }
+
+    console.log(`updateInventoryUI finished. Filled ${filledSlotsCount} slots, Total ${totalSlots}. Grid HTML:`, gridElement.innerHTML.substring(0, 200) + '...'); // Log start of HTML
 }
 
 // Function to update the Protection Book UI
@@ -298,9 +315,9 @@ function updateProtectionBookUI() {
 
 // Function to update the Stats Info modal UI
 function updateStatsModalUI() {
-    // Ensure stats are up-to-date before displaying
-    calculatePlayerPower(); // Function from gameWorld.js
-    calculateCharacterStats(); // Function from gameWorld.js
+    // Stats should be calculated *before* calling this function
+    // calculatePlayerPower(); // REMOVED - Called when needed elsewhere
+    // calculateCharacterStats(); // REMOVED - Called when needed elsewhere (e.g., equip/unequip, level up)
 
     // Get all the span elements
     const usernameSpan = document.getElementById('stats-username');
@@ -317,6 +334,7 @@ function updateStatsModalUI() {
     const defenceSpan = document.getElementById('stats-defence');
     const evasionRateSpan = document.getElementById('stats-evasionRate');
     const criticalRateSpan = document.getElementById('stats-criticalRate');
+    const damageSpan = document.getElementById('stats-damage'); // Get the new damage span
 
     // Update the content if elements exist
     // Uses global player variables from gameWorld.js
@@ -334,9 +352,64 @@ function updateStatsModalUI() {
     if (defenceSpan) defenceSpan.textContent = playerCharacterStats.defence;
     if (evasionRateSpan) evasionRateSpan.textContent = playerCharacterStats.evasionRate.toFixed(1); // Show one decimal place
     if (criticalRateSpan) criticalRateSpan.textContent = playerCharacterStats.criticalRate.toFixed(1); // Show one decimal place
+    if (damageSpan) damageSpan.textContent = playerCharacterStats.damage; // Update damage display
 
     console.log("Stats modal UI updated.");
 }
+
+// Function to update the Equipment modal UI
+function updateEquipmentUI() {
+    const equipmentSlotsContainer = document.querySelector('#equipment-modal .equipment-slots');
+    if (!equipmentSlotsContainer) {
+        console.error("Equipment slots container not found!");
+        return;
+    }
+
+    // Iterate through all defined equipment slots in the HTML
+    equipmentSlotsContainer.querySelectorAll('.equipment-slot').forEach(slotDiv => {
+        const slotType = slotDiv.dataset.slotType; // Get 'Head', 'Body', etc. from data attribute
+        const itemDiv = slotDiv.querySelector('.slot-item');
+        if (!itemDiv) return; // Skip if structure is wrong
+
+        const equippedItemId = playerEquipment[slotType]; // Get ID from gameWorld.js
+
+        if (equippedItemId) {
+            const item = getEquipmentById(equippedItemId); // Get full item details
+            if (item) {
+                itemDiv.textContent = item.name; // Display item name
+                itemDiv.title = `${item.name}\n${item.description || ''}\nClick to unequip`; // Tooltip
+                // Apply rarity styling
+                itemDiv.style.color = item.rarity.color || '#e0e0e0';
+                itemDiv.style.borderColor = item.rarity.color || '#555';
+                itemDiv.style.borderStyle = 'solid';
+                if (item.rarity.name === Rarity.GOD_TIER.name) {
+                    itemDiv.style.color = '#FFFFFF';
+                    itemDiv.style.textShadow = '0 0 3px #000, 0 0 3px #000, 0 0 3px #000';
+                } else {
+                    itemDiv.style.textShadow = 'none';
+                }
+            } else {
+                // Item ID exists but definition not found (error state)
+                itemDiv.textContent = `ERR! (${equippedItemId})`;
+                itemDiv.title = 'Error: Item definition not found';
+                itemDiv.style.color = 'red';
+                itemDiv.style.borderColor = '#444';
+                itemDiv.style.borderStyle = 'dashed';
+                itemDiv.style.textShadow = 'none';
+            }
+        } else {
+            // Slot is empty
+            itemDiv.textContent = ''; // Clear text
+            itemDiv.title = `${slotType} Slot (Empty)`;
+            itemDiv.style.color = '#666'; // Reset styling
+            itemDiv.style.borderColor = '#444';
+            itemDiv.style.borderStyle = 'dashed';
+            itemDiv.style.textShadow = 'none';
+        }
+    });
+    console.log("Equipment UI updated.");
+}
+
 
 // --- Custom Alert Functionality ---
 function showCustomAlert(message) {
@@ -833,7 +906,8 @@ function handlePopupOpenForActions(e) {
                 console.log("Enemy Stats for Battle:", { name: enemy.name, health: enemy.health, attack: enemy.attack, defense: enemy.defense });
 
                 if (typeof initiateBattle === 'function') {
-                    initiateBattle(currentPlayerBattleStats, enemy); // Function from battle.js
+                    // Pass null for the first argument as initiateBattle now uses global player stats
+                    initiateBattle(null, enemy); // Function from battle.js
                 } else {
                     console.error("initiateBattle function not found! Make sure battle.js is loaded.");
                     showCustomAlert("Battle system error. Cannot start fight.");
@@ -935,12 +1009,20 @@ if (saveUserInfoBtn) {
     console.error("Save User Info button not found!");
 }
 
-// --- Modal Logic (Wrapped in DOMContentLoaded) ---
+// --- Modal Logic & Other Listeners (Wrapped in DOMContentLoaded) ---
 document.addEventListener('DOMContentLoaded', () => {
+    // Attach listener to leave button *after* DOM is ready and gameWorld.js is likely parsed
+    if (leaveOrganizationButton) {
+        leaveOrganizationButton.addEventListener('click', leaveOrganization); // Function from gameWorld.js
+    } else {
+        console.error("Leave Organization button not found inside DOMContentLoaded!");
+    }
+
     // Get references to elements needed immediately or frequently
     const inventoryListElement = document.querySelector('#inventory-modal #inventory-list'); // Needed for item usage listener
     const battleModal = document.getElementById('battle-modal'); // Needed for close button listener
     const battleCloseBtn = document.getElementById('battle-close-btn'); // Needed for close button listener
+    const equipmentSlotsContainer = document.querySelector('#equipment-modal .equipment-slots'); // For unequip listener
 
     // Get references to new bottom bar action buttons
     const actionUserInfoBtn = document.getElementById('action-userinfo-btn');
@@ -1000,6 +1082,7 @@ document.addEventListener('DOMContentLoaded', () => {
         openEquipmentBtn.addEventListener('click', () => {
             const equipmentModal = document.getElementById('equipment-modal'); // Get modal fresh
             if (equipmentModal) {
+                updateEquipmentUI(); // Update UI when opening
                 equipmentModal.classList.remove('modal-hidden');
                 console.log("Equipment modal opened (old button).");
             } else { console.error("Equipment modal not found on open click (old button)."); }
@@ -1016,12 +1099,30 @@ document.addEventListener('DOMContentLoaded', () => {
     // Listener for background click
     if (equipmentModal) {
         equipmentModal.addEventListener('click', (event) => {
+            // Close only if clicking the background, not the content/slots
             if (event.target === equipmentModal) {
                 equipmentModal.classList.add('modal-hidden');
                 console.log("Equipment modal closed (background).");
             }
         });
     }
+    // Listener for clicking on equipment slots (for unequipping)
+    if (equipmentSlotsContainer) {
+        equipmentSlotsContainer.addEventListener('click', (event) => {
+            const slotItemDiv = event.target.closest('.slot-item');
+            if (slotItemDiv) { // Check if a slot item was clicked
+                const slotDiv = slotItemDiv.closest('.equipment-slot');
+                if (slotDiv && slotDiv.dataset.slotType) {
+                    const slotType = slotDiv.dataset.slotType;
+                    console.log(`Clicked on equipment slot: ${slotType}`);
+                    unequipItem(slotType); // Call unequip function from gameWorld.js
+                }
+            }
+        });
+    } else {
+        console.error("Equipment slots container not found for unequip listener.");
+    }
+
 
     // --- Inventory Modal Listeners (Get elements inside listener) ---
     const openInventoryBtn = document.getElementById('open-inventory-btn'); // Old button ID
@@ -1057,17 +1158,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Item usage listener (needs list element from earlier)
-    if (inventoryListElement) {
-        inventoryListElement.addEventListener('click', (event) => {
-            if (event.target.tagName === 'LI' && event.target.dataset.itemId) {
-                const itemId = event.target.dataset.itemId;
-                console.log(`Clicked on inventory item: ${itemId}`);
-                // Note: useItem handles alerts and inventory updates internally
+    // Item usage/equip listener (targets the grid now)
+    const inventoryGridElement = document.getElementById('inventory-grid');
+    if (inventoryGridElement) {
+        inventoryGridElement.addEventListener('click', (event) => {
+            const clickedSlot = event.target.closest('.inventory-slot'); // Find the slot element
+            // Ensure a slot was clicked and it's not an empty slot (check for itemId dataset)
+            if (clickedSlot && clickedSlot.dataset.itemId) {
+                const itemId = clickedSlot.dataset.itemId;
+                console.log(`Clicked on inventory item slot: ${itemId}`);
+                // Call useItem, which handles equipping/using consumables
+                useItem(itemId); // Function from gameWorld.js
+            } else if (clickedSlot) {
+                console.log("Clicked on an empty inventory slot.");
             }
         });
     } else {
-        console.error("Inventory list element not found for item usage listener.");
+        console.error("Inventory grid element not found for item usage listener.");
     }
 
     // --- Battle Modal Close Button ---
@@ -1130,7 +1237,10 @@ document.addEventListener('DOMContentLoaded', () => {
         actionStatsBtn.addEventListener('click', () => {
             const statsModal = document.getElementById('stats-modal'); // Get modal fresh
             if (statsModal) {
-                updateStatsModalUI();
+                // Calculate latest stats *before* updating the UI
+                calculatePlayerPower(); // From gameWorld.js
+                calculateCharacterStats(); // From gameWorld.js
+                updateStatsModalUI(); // Now update the UI with fresh stats
                 statsModal.classList.remove('modal-hidden');
                 console.log("Stats modal opened via bottom bar button.");
             } else { console.error("Stats modal not found on open click (bottom bar)."); }
@@ -1144,8 +1254,8 @@ document.addEventListener('DOMContentLoaded', () => {
         actionEquipmentBtn.addEventListener('click', () => {
             const equipmentModal = document.getElementById('equipment-modal'); // Get modal fresh
             if (equipmentModal) {
+                updateEquipmentUI(); // Update UI when opening
                 equipmentModal.classList.remove('modal-hidden');
-                // TODO: Populate modal with current equipment data when opening
                 console.log("Equipment modal opened via bottom bar button.");
             } else { console.error("Equipment modal not found on open click (bottom bar)."); }
         });
@@ -1167,16 +1277,6 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error("Could not find Inventory action button.");
     }
 
-    if (actionInventoryBtn && inventoryModal) {
-        actionInventoryBtn.addEventListener('click', () => {
-            updateInventoryUI(); // Update list content *before* showing
-            inventoryModal.classList.remove('modal-hidden');
-            console.log("Inventory modal opened via bottom bar button.");
-        });
-    } else {
-        console.error("Could not find Inventory action button or modal:", { btn: !!actionInventoryBtn, modal: !!inventoryModal });
-    }
-
 
     // --- Initial UI Setup ---
     loadUserInfo(); // Load username/alias first (this now also updates bottom bar alias)
@@ -1185,21 +1285,5 @@ document.addEventListener('DOMContentLoaded', () => {
     calculateCharacterStats(); // Calculate initial stats including Max HP (from gameWorld.js)
     updateHpUI(); // Show initial HP
     updateExperienceUI(); // Show initial EXP/Level
-
-    // Attach the map popup listener here, ensuring map and function are defined
-    if (map && typeof handlePopupOpenForActions === 'function') {
-        map.on('popupopen', handlePopupOpenForActions);
-        console.log("Map popup listener attached in uiManager.");
-    } else {
-        // Add a small delay and retry, as map might not be ready exactly when DOMContentLoaded fires
-        setTimeout(() => {
-            if (map && typeof handlePopupOpenForActions === 'function') {
-                map.on('popupopen', handlePopupOpenForActions);
-                console.log("Map popup listener attached in uiManager (after delay).");
-            } else {
-                 console.error("Could not attach map popup listener after delay: map or handlePopupOpenForActions not ready.");
-            }
-        }, 500); // Retry after 500ms
-    }
 
 }); // Close DOMContentLoaded listener

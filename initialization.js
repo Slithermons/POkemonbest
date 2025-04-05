@@ -353,8 +353,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Player Marker ---
         const playerIcon = L.divIcon({ html: '<div class="player-sprite walk-down"></div>', className: 'player-marker', iconSize: [64, 64], iconAnchor: [32, 32] });
         const popupText = locationPermissionGranted ? 'You are here!' : 'Default location.';
-        if (!userMarker) userMarker = L.marker([initialLat, initialLon], { icon: playerIcon }).addTo(map).bindPopup(popupText);
-        else userMarker.setLatLng([initialLat, initialLon]).setPopupContent(popupText).setIcon(playerIcon);
+        // Check if userMarker exists and is potentially null (from gameWorld.js)
+        if (typeof userMarker === 'undefined' || userMarker === null) {
+             console.log("Creating new user marker.");
+             userMarker = L.marker([initialLat, initialLon], { icon: playerIcon }).addTo(map).bindPopup(popupText);
+        } else {
+             console.log("Updating existing user marker.");
+             userMarker.setLatLng([initialLat, initialLon]).setPopupContent(popupText).setIcon(playerIcon);
+        }
         userMarker.openPopup();
         console.log("Player marker created/updated.");
 
@@ -374,10 +380,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const initialBounds = map.getBounds();
         const initialBusinesses = await fetchBusinessesInBounds(initialBounds); displayBusinesses(initialBusinesses);
         updateBusinessMarkers();
-        spawnEnemies(10, initialLat, initialLon, 0.008, enemyLayer);
-        startEnemyMovement(3000);
+        // REMOVED: spawnEnemies(10, initialLat, initialLon, 0.008, enemyLayer);
+        startEnemyMovement(3000); // Start general enemy movement
+        startAssociateProximityChecks(); // Start the new associate management logic
         if (currentUserLocation) updateMarkersVisibility(currentUserLocation.lat, currentUserLocation.lon);
-        console.log("Initial spawns complete.");
+        console.log("Initial setup and proximity checks started.");
 
         // --- Position Watching ---
         if (locationPermissionGranted && navigator.geolocation.watchPosition) {
