@@ -64,7 +64,8 @@ const MANUAL_JOIN_DISTANCE = 2000; // Max distance in meters to MANUALLY join an
 const AUTO_JOIN_SEARCH_RADIUS = 10000; // Initial search radius in meters for auto-joining
 const TERRITORY_RADIUS = 2000; // 2km radius for territory control (used for profit collection)
 const PROTECTION_ACTIVATION_RANGE = 2000; // 2km radius for activating protection
-const MAX_PROTECTING_USERS = 10; // Max users per org protecting a business
+const MAX_PROTECTING_USERS = 10; // Max users *per org* protecting a business
+const MAX_PLAYER_PROTECTED_BUSINESSES = 15; // Max businesses a single player can protect
 const VISIBILITY_RADIUS_METERS = 2000; // 2km radius for showing markers
 const CASH_COLLECTION_DISTANCE = 50; // Keep cash collection range short
 const PROFIT_RATE_PER_MINUTE = 1.0; // $1 per minute base rate
@@ -950,6 +951,19 @@ function activateProtection(businessId) {
          return;
      }
 
+    // Check 5: Has the player reached their personal protection limit?
+    let currentlyProtectingCount = 0;
+    for (const id in businessesCache) {
+        const biz = businessesCache[id];
+        if (biz.protectingUsers && biz.protectingUsers.some(user => user.userId === currentPlayerId)) {
+            currentlyProtectingCount++;
+        }
+    }
+    if (currentlyProtectingCount >= MAX_PLAYER_PROTECTED_BUSINESSES) {
+        showCustomAlert(`You have reached your personal limit of protecting ${MAX_PLAYER_PROTECTED_BUSINESSES} businesses.`);
+        return;
+    }
+
 
     // --- All checks passed, activate/add protection ---
     console.log(`Activating protection for ${businessInfo.name} by ${currentPlayerId} (Power: ${playerPower})`); // Use calculated playerPower
@@ -1248,6 +1262,52 @@ function collectProfit(businessId) {
         showCustomAlert(`You are too far away to collect profit from ${businessInfo.name}. (Distance: ${distanceToBusiness.toFixed(1)}m)`); // Use custom alert (defined in uiManager.js)
     }
 }
+
+// Function to remove player's protection from a business
+function removePlayerProtection(businessId) {
+    const businessInfo = businessesCache[businessId];
+    if (!businessInfo) {
+        console.error(`Cannot remove protection: Business ${businessId} not found in cache.`);
+        showCustomAlert("Error: Business data not found.");
+        return;
+    }
+
+    if (!businessInfo.protectingUsers || businessInfo.protectingUsers.length === 0) {
+        console.warn(`Attempted to remove protection from ${businessInfo.name} (ID: ${businessId}), but it has no protectors.`);
+        // No need to alert user, just log it.
+        return;
+    }
+
+    const playerIndex = businessInfo.protectingUsers.findIndex(user => user.userId === currentPlayerId);
+
+    if (playerIndex === -1) {
+        console.warn(`Attempted to remove protection from ${businessInfo.name} (ID: ${businessId}), but player ${currentPlayerId} is not listed as a protector.`);
+        showCustomAlert("You are not currently protecting this business.");
+        return;
+    }
+
+    // Remove the player
+    const removedUser = businessInfo.protectingUsers.splice(playerIndex, 1)[0];
+    console.log(`Removed player ${removedUser.userId} (Power: ${removedUser.userPower}) from protecting ${businessInfo.name}`);
+
+    // Recalculate protection power
+    businessInfo.protectionPower = businessInfo.protectingUsers.reduce((sum, user) => sum + user.userPower, 0);
+
+    // If no users are left, clear the organization
+    if (businessInfo.protectingUsers.length === 0) {
+        console.log(`No protectors left for ${businessInfo.name}. Clearing protecting organization.`);
+        businessInfo.protectingOrganization = null;
+        businessInfo.protectionPower = 0; // Ensure power is zero
+    }
+
+    showCustomAlert(`You have stopped protecting ${businessInfo.name}.`);
+
+    // Update UI
+    updateSingleBusinessMarker(businessId); // Update the marker popup
+    updateProtectionBookUI(); // Refresh the protection book list
+    // TODO: Persist changes
+}
+
 
 // --- Enemy Removal Function ---
 // Needs access to `enemies` array (from enemy.js) and `enemyLayer`

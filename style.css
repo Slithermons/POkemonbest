@@ -79,38 +79,52 @@ body {
 /* Modernized Dark Mode Dashboard & Protection Book Styles */
 #dashboard, #protection-book {
     position: absolute;
-    background-color: rgba(50, 50, 50, 0.9); /* Dark background */
+    /* Mafia Style: Darker, richer background, subtle texture/gradient if possible */
+    background: linear-gradient(rgba(30, 30, 30, 0.95), rgba(15, 15, 15, 0.95)); /* Dark gradient */
     color: #e0e0e0; /* Light text */
-    padding: 12px;
-    border-radius: 8px;
+    padding: 15px; /* Slightly more padding */
+    border-radius: 4px; /* Sharper corners */
+    border: 1px solid #8B4513; /* SaddleBrown border - classic feel */
     z-index: 1000;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.3); /* Adjusted shadow for dark */
-    /* font-family set on body */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.6); /* More pronounced shadow */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Keep modern sans-serif for body */
     transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 #dashboard {
     top: 10px;
     right: 10px;
-    min-width: 180px; /* Slightly wider */
+    min-width: 200px; /* Slightly wider */
 }
 
 #protection-book {
-    bottom: 10px;
-    left: 10px;
-    max-width: calc(100% - 20px);
-    max-height: 35%; /* Adjust max-height */
+    /* Styling to match other modals */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #2c2c2c; /* Match modal background */
+    padding: 20px; /* Increase padding */
+    border-radius: 10px; /* Match modal radius */
+    border: 2px solid #555; /* Add border like modals */
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5); /* Stronger shadow like modals */
+    width: 95%; /* Force width to be relative */
+    max-width: 95%; /* Use percentage for relative width */
+    max-height: 50vh; /* Increased max-height */
     overflow-y: auto;
+    z-index: 1001; /* Ensure it's above dashboard/map controls if needed */
 }
 
 /* Header Styles */
 #dashboard h2, #protection-book h3 {
     margin-top: 0;
-    font-size: 1.1em; /* Adjust size */
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #555; /* Darker border */
-    color: #f5f5f5; /* Lighter header text */
+    font-size: 1.2em; /* Slightly larger */
+    margin-bottom: 15px; /* More space below */
+    padding-bottom: 10px;
+    border-bottom: 1px solid #8B4513; /* Match border color */
+    color: #E0CDA1; /* Light gold/parchment color */
+    font-family: 'Georgia', serif; /* Classic serif font for header */
+    text-align: center; /* Center header */
+    letter-spacing: 1px; /* Add some letter spacing */
 }
 
 /* Section Styles */
@@ -124,13 +138,15 @@ body {
 .dashboard-section .label {
     font-weight: bold;
     margin-right: 10px;
-    color: #aaa; /* Lighter label */
+    color: #a0a0a0; /* Slightly muted grey label */
+    font-size: 0.9em;
 }
 
 .dashboard-section .value {
     text-align: right;
-    color: #fff; /* White value text */
-    font-weight: 500;
+    color: #f0e68c; /* Khaki/light gold value text */
+    font-weight: bold; /* Make values stand out */
+    font-size: 0.95em;
 }
 
 /* --- HP Bar Styles (General) --- */
@@ -149,7 +165,8 @@ body {
 .hp-bar {
     height: 100%;
     width: 100%; /* Start full */
-    background: linear-gradient(to right, #4caf50, #81c784); /* Green gradient */
+    /* Mafia Style: Deep red gradient for HP */
+    background: linear-gradient(to right, #8B0000, #B22222); /* DarkRed to Firebrick */
     border-radius: 6px; /* Match container */
     transition: width 0.3s ease-in-out;
 }
@@ -248,9 +265,9 @@ body {
 
 /* Action Button Styles (Dashboard) */
 .dashboard-actions {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid #555;
+    margin-top: 15px; /* More space */
+    padding-top: 15px;
+    border-top: 1px solid #8B4513; /* Match border color */
 }
 .dashboard-actions .btn { /* Target buttons within actions */
     width: 100%; /* Make dashboard buttons full width */
@@ -368,35 +385,32 @@ body {
     color: #fff;
 }
 
-.show-ui-btn { /* General class for show buttons */
-    position: absolute;
+/* Removed .show-ui-btn styles as the buttons are now part of other elements or handled differently */
+
+/* Specific position for the dashboard show button */
+#show-dashboard-btn {
+    position: absolute; /* Keep this one positioned */
+    top: 10px;
+    right: 10px;
     z-index: 1001;
     padding: 6px 10px;
     font-size: 1.1em;
-    background-color: rgba(70, 70, 70, 0.9); /* Dark background */
-    color: #e0e0e0; /* Light icon */
+    background-color: rgba(70, 70, 70, 0.9);
+    color: #e0e0e0;
     border: none;
     border-radius: 50%;
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-    display: none; /* Hidden by default */
+    display: none; /* Still hidden by default */
     line-height: 1;
     transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
-.show-ui-btn:hover {
+#show-dashboard-btn:hover {
     background-color: rgba(90, 90, 90, 1);
-    box-shadow: 0 3px 8px rgba(0,0,0,0.4); /* Darker shadow */
+    box-shadow: 0 3px 8px rgba(0,0,0,0.4);
 }
 
-/* Specific positions for show buttons */
-#show-dashboard-btn {
-    top: 10px;
-    right: 10px;
-}
-#show-book-btn {
-    bottom: 10px;
-    left: 10px;
-}
+/* #show-book-btn is now styled by .action-btn */
 
 
 /* State when UI elements are minimized */
@@ -431,11 +445,12 @@ body {
 }
 
 #stats-modal .modal-content {
-    background-color: #2c2c2c;
+    /* Apply Mafia Style */
+    background: linear-gradient(rgba(30, 30, 30, 0.95), rgba(15, 15, 15, 0.95)); /* Dark gradient */
     padding: 25px; /* More padding */
-    border-radius: 10px;
-    border: 2px solid #555;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+    border-radius: 4px; /* Sharper corners */
+    border: 1px solid #8B4513; /* SaddleBrown border */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.6); /* More pronounced shadow */
     color: #e0e0e0;
     width: 85%; /* Wider */
     max-width: 550px; /* Slightly wider max */
@@ -446,13 +461,17 @@ body {
 }
 
 #stats-modal h2 {
+    /* Apply Mafia Style Header */
     margin-top: 0;
     text-align: center;
-    color: #f5f5f5;
-    border-bottom: 1px solid #555;
+    color: #E0CDA1; /* Light gold/parchment color */
+    border-bottom: 1px solid #8B4513; /* Match border color */
     padding-bottom: 10px;
     margin-bottom: 20px;
     flex-shrink: 0;
+    font-family: 'Georgia', serif; /* Classic serif font */
+    font-size: 1.3em; /* Slightly larger for modal title */
+    letter-spacing: 1px;
 }
 
 #stats-modal .close-btn {
@@ -461,13 +480,13 @@ body {
     right: 15px;
     font-size: 24px;
     font-weight: bold;
-    color: #aaa;
+    color: #E0CDA1; /* Match header color */
     cursor: pointer;
     transition: color 0.2s ease;
 }
 
 #stats-modal .close-btn:hover {
-    color: #fff;
+    color: #fff; /* White on hover */
 }
 
 .stats-modal-content {
@@ -479,19 +498,20 @@ body {
 }
 
 .stats-section {
-    background-color: #3a3a3a; /* Slightly lighter background for sections */
+    background-color: rgba(40, 40, 40, 0.7); /* Darker section background */
     padding: 15px;
-    border-radius: 5px;
-    border: 1px solid #444;
+    border-radius: 3px; /* Sharper corners */
+    border: 1px solid #5a4a3a; /* Dark brown border */
 }
 
 .stats-section h4 {
     margin-top: 0;
     margin-bottom: 15px;
-    color: #ccc;
-    border-bottom: 1px solid #555;
+    color: #b0a080; /* Muted gold/brown */
+    border-bottom: 1px solid #5a4a3a; /* Match border */
     padding-bottom: 5px;
     font-size: 1.1em;
+    font-family: 'Georgia', serif;
 }
 
 .stats-section p {
@@ -502,13 +522,13 @@ body {
 }
 
 .stats-section p strong {
-    color: #aaa; /* Lighter label color */
+    color: #a0a0a0; /* Muted grey label */
     margin-right: 10px;
 }
 
 .stats-section p span {
     font-weight: bold;
-    color: #fff; /* White value */
+    color: #f0e68c; /* Khaki/light gold value */
 }
 
 /* --- Equipment Modal Styles --- */
@@ -533,11 +553,12 @@ body {
 }
 
 #equipment-modal .modal-content {
-    background-color: #2c2c2c; /* Dark background like dashboard */
+    /* Apply Mafia Style */
+    background: linear-gradient(rgba(30, 30, 30, 0.95), rgba(15, 15, 15, 0.95)); /* Dark gradient */
     padding: 20px;
-    border-radius: 10px;
-    border: 2px solid #555; /* Dark border */
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+    border-radius: 4px; /* Sharper corners */
+    border: 1px solid #8B4513; /* SaddleBrown border */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.6); /* More pronounced shadow */
     color: #e0e0e0;
     width: 80%;
     max-width: 600px; /* Max width for the modal */
@@ -546,12 +567,16 @@ body {
 }
 
 #equipment-modal h2 {
+    /* Apply Mafia Style Header */
     margin-top: 0;
     text-align: center;
-    color: #f5f5f5;
-    border-bottom: 1px solid #555;
+    color: #E0CDA1; /* Light gold/parchment color */
+    border-bottom: 1px solid #8B4513; /* Match border color */
     padding-bottom: 10px;
     margin-bottom: 20px;
+    font-family: 'Georgia', serif; /* Classic serif font */
+    font-size: 1.3em; /* Slightly larger for modal title */
+    letter-spacing: 1px;
 }
 
 #equipment-modal .close-btn {
@@ -560,13 +585,13 @@ body {
     right: 15px;
     font-size: 24px;
     font-weight: bold;
-    color: #aaa;
+    color: #E0CDA1; /* Match header color */
     cursor: pointer;
     transition: color 0.2s ease;
 }
 
 #equipment-modal .close-btn:hover {
-    color: #fff;
+    color: #fff; /* White on hover */
 }
 
 /* .equipment-layout rule removed as slots are the only child now */
@@ -581,9 +606,9 @@ body {
 }
 
 .equipment-slot {
-    background-color: #3a3a3a; /* Slightly lighter dark background */
-    border: 1px solid #555;
-    border-radius: 5px;
+    background-color: rgba(40, 40, 40, 0.7); /* Darker slot background */
+    border: 1px solid #5a4a3a; /* Dark brown border */
+    border-radius: 3px; /* Sharper corners */
     padding: 10px;
     text-align: center;
     min-height: 80px; /* Minimum height for slots */
@@ -595,15 +620,15 @@ body {
 
 .equipment-slot .slot-label {
     font-size: 0.8em;
-    color: #aaa;
+    color: #a0a0a0; /* Muted grey label */
     margin-bottom: 5px;
 }
 
 .equipment-slot .slot-item {
     width: 50px; /* Size of the item box */
     height: 50px;
-    background-color: #1a1a1a; /* Very dark background for empty item */
-    border: 1px dashed #444; /* Dashed border for empty slot */
+    background-color: #101010; /* Even darker background for empty item */
+    border: 1px dashed #5a4a3a; /* Dashed brown border */
     border-radius: 3px;
     display: flex; /* For potential item icon centering */
     justify-content: center;
@@ -614,7 +639,7 @@ body {
 }
 
 .equipment-slot .slot-item:hover {
-    border-color: #777;
+    border-color: #8B4513; /* SaddleBrown on hover */
 }
 
 /* Style for the equipment button on the dashboard */
@@ -699,11 +724,12 @@ body {
 }
 
 #inventory-modal .modal-content {
-    background-color: #2c2c2c; /* Dark background like dashboard */
-    padding: 20px;
-    border-radius: 10px;
-    border: 2px solid #555; /* Dark border */
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+    /* Apply Mafia Style - Keep ornate border from previous change */
+    background: linear-gradient(rgba(30, 30, 30, 0.95), rgba(15, 15, 15, 0.95)); /* Dark gradient */
+    /* padding: 10px; /* Keep reduced padding from grid style */
+    border-radius: 4px; /* Sharper corners */
+    border: 3px solid #4a3c2a; /* Keep Dark brownish border */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.6), inset 0 0 10px rgba(0,0,0,0.5); /* More pronounced shadow + inner */
     color: #e0e0e0;
     width: 70%; /* Slightly smaller width? */
     max-width: 500px; /* Max width for the modal */
@@ -713,29 +739,15 @@ body {
     flex-direction: column;
 }
 
-#inventory-modal h2 {
-    margin-top: 0;
-    text-align: center;
-    color: #f5f5f5;
-    border-bottom: 1px solid #555;
-    padding-bottom: 10px;
-    margin-bottom: 15px;
-    flex-shrink: 0; /* Prevent header from shrinking */
-}
+/* Inventory title already has ornate style, keep it */
+/* #inventory-modal h2 { ... } */
 
-#inventory-modal .close-btn {
-    position: absolute;
-    top: 10px;
-    right: 15px;
-    font-size: 24px;
-    font-weight: bold;
-    color: #aaa;
-    cursor: pointer;
-    transition: color 0.2s ease;
-}
+
+/* Inventory close button already has ornate style, keep it */
+/* #inventory-modal .close-btn { ... } */
 
 #inventory-modal .close-btn:hover {
-    color: #fff;
+    color: #fff; /* White on hover */
 }
 
 .inventory-modal-content {
@@ -1547,4 +1559,37 @@ body {
 .inventory-slot.empty {
     /* Maybe add a subtle pattern or icon */
     background-color: #25201a; /* Slightly different empty background */
+}
+
+/* --- Battle Speed Controls --- */
+.battle-speed-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px; /* Space below controls */
+    padding: 5px;
+    background-color: rgba(255, 255, 255, 0.05); /* Subtle background */
+    border-radius: 4px;
+}
+
+.battle-speed-controls span {
+    font-size: 0.9em;
+    color: #ccc;
+    margin-right: 5px;
+}
+
+.battle-speed-btn {
+    /* Inherits .btn */
+    padding: 4px 8px; /* Smaller padding */
+    font-size: 0.8em;
+    min-width: 40px; /* Ensure minimum width */
+}
+
+/* Active state for speed buttons */
+.battle-speed-btn.btn-active {
+    background-color: #1e88e5; /* Blue to indicate active */
+    border-color: #1565c0;
+    color: #fff;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
 }

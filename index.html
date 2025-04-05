@@ -89,8 +89,7 @@
         </ul>
     </div>
 
-        <!-- Button to show the book when minimized -->
-        <button id="show-book-btn" class="show-ui-btn" title="Show Protection Book">📖</button> <!-- Changed class -->
+        <!-- Button to show the book is now moved to the bottom bar -->
 
         <!-- New Bottom Bar -->
         <div id="bottom-bar">
@@ -106,6 +105,7 @@
                 <button id="action-stats-btn" class="action-btn" title="Stats">📊</button> <!-- Placeholder Icon -->
                 <button id="action-equipment-btn" class="action-btn" title="Equipment">⚔️</button> <!-- Placeholder Icon -->
                 <button id="action-inventory-btn" class="action-btn" title="Inventory">🎒</button> <!-- Placeholder Icon -->
+                <button id="show-book-btn" class="action-btn" title="Show Protection Book">📖</button> <!-- Moved here, changed class -->
             </div>
         </div>
     </div> <!-- End Mobile Container -->
@@ -295,6 +295,14 @@
             <!-- Battle Simulation Image -->
             <div class="battle-image-container">
                  <img id="battle-simulation-image" src="" alt="Battle Simulation" style="display: none;"> <!-- Initially hidden -->
+            </div>
+
+            <!-- Battle Speed Controls -->
+            <div class="battle-speed-controls">
+                <span>Speed:</span>
+                <button id="battle-speed-1x" class="btn btn-grey battle-speed-btn btn-active" onclick="setBattleSpeed(1)">1x</button>
+                <button id="battle-speed-2x" class="btn btn-grey battle-speed-btn" onclick="setBattleSpeed(2)">2x</button>
+                <button id="battle-speed-4x" class="btn btn-grey battle-speed-btn" onclick="setBattleSpeed(4)">4x</button>
             </div>
 
             <!-- Battle Log -->

@@ -9,7 +9,8 @@ let currentBattle = {
     isPlayerTurn: true,
     gameOver: false,
     isAutoAttackActive: false, // Added for auto-attack
-    autoAttackTimeoutId: null // Added for auto-attack delay management
+    autoAttackTimeoutId: null, // Added for auto-attack delay management
+    battleSpeedMultiplier: 1 // Added for battle speed control (1x, 2x, 4x)
 };
 
 // --- Battle Simulation Image Paths ---
@@ -128,15 +129,35 @@ function enableActions() {
      if (battleAutoAttackBtn) battleAutoAttackBtn.disabled = false;
 }
 
+// --- Battle Speed Control ---
+function setBattleSpeed(speed) {
+    const validSpeeds = [1, 2, 4];
+    if (validSpeeds.includes(speed)) {
+        currentBattle.battleSpeedMultiplier = speed;
+        console.log(`Battle speed set to ${speed}x`);
+        // Update UI button states
+        document.querySelectorAll('.battle-speed-btn').forEach(btn => {
+            btn.classList.remove('btn-active'); // Assuming a general class for active state
+        });
+        const activeBtn = document.getElementById(`battle-speed-${speed}x`);
+        if (activeBtn) {
+            activeBtn.classList.add('btn-active');
+        }
+    } else {
+        console.warn(`Invalid battle speed requested: ${speed}`);
+    }
+}
+
+
 // --- Shootout Visual ---
 function showShootoutVisual() {
     const visualElement = document.getElementById('shootout-visual');
     if (visualElement) {
         visualElement.style.display = 'block';
-        // Remove the element after animation finishes (match CSS duration)
+        // Remove the element after animation finishes (match CSS duration) - Speed affects this too
         setTimeout(() => {
             visualElement.style.display = 'none';
-        }, 500); // 0.5s animation duration
+        }, 500 / currentBattle.battleSpeedMultiplier); // 0.5s animation duration, adjusted by speed
     }
 }
 
@@ -158,8 +179,8 @@ function showRandomBattleImage() {
     imgElement.src = battleImagePaths[randomIndex];
     imgElement.style.display = 'block'; // Make it visible
 
-    // Set a timeout to hide the image after a short duration (e.g., 1 second)
-    battleImageTimeoutId = setTimeout(hideBattleImage, 1000);
+    // Set a timeout to hide the image after a short duration (e.g., 1 second), adjusted by speed
+    battleImageTimeoutId = setTimeout(hideBattleImage, 1000 / currentBattle.battleSpeedMultiplier);
 }
 
 function hideBattleImage() {
@@ -221,8 +242,12 @@ function initiateBattle(playerBattleStats_IGNORED, enemyData) { // playerBattleS
         isPlayerTurn: true,
         gameOver: false,
         isAutoAttackActive: false, // Reset auto-attack
-        autoAttackTimeoutId: null
+        autoAttackTimeoutId: null,
+        battleSpeedMultiplier: 1 // Reset speed to 1x on new battle
     };
+
+    // Reset speed buttons UI
+    setBattleSpeed(1); // Set default speed and update UI
 
     // Reset auto-attack button state
     battleAutoAttackBtn.textContent = "Auto Attack";
@@ -330,7 +355,8 @@ function playerTurn() {
         currentBattle.isPlayerTurn = false;
         disableActions(); // Disable player actions during enemy turn
         addLogEntry(`${currentBattle.enemy.name}'s turn...`, 'info');
-        setTimeout(enemyTurn, 1200); // Enemy attacks after a delay
+        // Enemy attacks after a delay, adjusted by speed
+        setTimeout(enemyTurn, 1200 / currentBattle.battleSpeedMultiplier);
     }
 }
 
@@ -377,10 +403,11 @@ function enemyTurn() {
         addLogEntry(`${currentBattle.player.name}'s turn...`, 'info');
 
         // Check for auto-attack
+        // Check for auto-attack
         if (currentBattle.isAutoAttackActive) {
             disableActions(); // Keep actions disabled
-            // Schedule next auto-attack
-            currentBattle.autoAttackTimeoutId = setTimeout(playerTurn, 1000); // Auto-attack after 1s
+            // Schedule next auto-attack, adjusted by speed
+            currentBattle.autoAttackTimeoutId = setTimeout(playerTurn, 1000 / currentBattle.battleSpeedMultiplier);
         } else {
             enableActions(); // Re-enable player actions for manual turn
         }
@@ -397,7 +424,8 @@ function attemptFlee() {
     const fleeChance = 0.5; // 50% chance to flee (adjust as needed)
     addLogEntry(`${currentBattle.player.name} attempts to flee...`, 'flee');
 
-    setTimeout(() => { // Add a small delay for the attempt message
+    // Add a small delay for the attempt message, adjusted by speed
+    setTimeout(() => {
         if (Math.random() < fleeChance) {
             // Flee successful
             addLogEntry("Successfully fled from battle!", 'result');
@@ -410,15 +438,17 @@ function attemptFlee() {
             } else {
                 console.warn("playBgm function not found after fleeing.");
             }
-            setTimeout(hideBattleModal, 1500); // Close modal after a delay
+            // Close modal after a delay, adjusted by speed
+            setTimeout(hideBattleModal, 1500 / currentBattle.battleSpeedMultiplier);
         } else {
             // Flee failed
             addLogEntry("Failed to flee!", 'flee');
             currentBattle.isPlayerTurn = false; // Player loses their turn
             addLogEntry(`${currentBattle.enemy.name}'s turn...`, 'info');
-            setTimeout(enemyTurn, 1200); // Enemy attacks after flee failure
+            // Enemy attacks after flee failure, adjusted by speed
+            setTimeout(enemyTurn, 1200 / currentBattle.battleSpeedMultiplier);
         }
-    }, 800); // Delay for flee attempt message
+    }, 800 / currentBattle.battleSpeedMultiplier); // Delay for flee attempt message, adjusted by speed
 }
 
 // --- Auto Attack Toggle ---
@@ -444,7 +474,8 @@ function toggleAutoAttack() {
             if (currentBattle.autoAttackTimeoutId) {
                 clearTimeout(currentBattle.autoAttackTimeoutId);
             }
-            currentBattle.autoAttackTimeoutId = setTimeout(playerTurn, 500); // Start first auto-attack quickly
+            // Start first auto-attack quickly, adjusted by speed
+            currentBattle.autoAttackTimeoutId = setTimeout(playerTurn, 500 / currentBattle.battleSpeedMultiplier);
         }
     } else {
         stopAutoAttack(); // Call the function to handle stopping logic

@@ -243,73 +243,75 @@ function updateInventoryUI() {
     console.log(`updateInventoryUI finished. Filled ${filledSlotsCount} slots, Total ${totalSlots}. Grid HTML:`, gridElement.innerHTML.substring(0, 200) + '...'); // Log start of HTML
 }
 
-// Function to update the Protection Book UI
+// Function to update the Protection Book UI - Now shows businesses *protected by the player*
 function updateProtectionBookUI() {
     if (!protectionBookElement || !controlledBusinessesListElement) {
         console.error("Protection book elements not found!");
         return;
     }
-    if (!currentUserOrganization) { // Variable from gameWorld.js
-        protectionBookElement.style.display = 'none';
-        controlledBusinessesListElement.innerHTML = '';
-        return;
-    }
+
+    // The book is now relevant even without an organization, as it shows player's protections
+    // if (!currentUserOrganization) {
+    //     protectionBookElement.style.display = 'none';
+    //     controlledBusinessesListElement.innerHTML = '';
+    //     return;
+    // }
 
     controlledBusinessesListElement.innerHTML = ''; // Clear existing list
-    let controlledCount = 0;
-    let totalProtectionPower = 0; // Track total power of controlled businesses
+    let playerProtectedCount = 0;
 
-    // Iterate through cached businesses that are currently displayed
-    displayedBusinessIds.forEach(id => { // Variable from gameWorld.js
-        const businessInfo = businessesCache[id]; // Variable from gameWorld.js
-        // Check if the business exists and is controlled *for profit* by the current org
-        if (businessInfo && businessInfo.isControlled) { // isControlled checks territory radius
-            controlledCount++;
-            const profit = calculatePotentialProfit(businessInfo); // Function from gameWorld.js
+    // Iterate through *all* cached businesses to find ones protected by the player
+    for (const id in businessesCache) { // businessesCache from gameWorld.js
+        const businessInfo = businessesCache[id];
+        // Check if the business exists and the current player is in its protectingUsers array
+        const isPlayerProtecting = businessInfo.protectingUsers && businessInfo.protectingUsers.some(user => user.userId === currentPlayerId); // currentPlayerId from gameWorld.js
+
+        if (isPlayerProtecting) {
+            playerProtectedCount++;
             const listItem = document.createElement('li');
-            listItem.classList.add('controlled-business-item');
+            listItem.classList.add('controlled-business-item'); // Keep class for styling consistency
 
-            let protectionInfo = '(Unprotected)';
-            let protectorAlias = ''; // Variable to hold the alias
-            // Check if it's protected by *this* organization
-            if (businessInfo.protectingOrganization && businessInfo.protectingOrganization.abbreviation === currentUserOrganization.abbreviation) {
-                protectionInfo = `(Power: ${businessInfo.protectionPower})`;
-                totalProtectionPower += businessInfo.protectionPower; // Add to total
-                // If protected by current org, display the saved alias
-                if (playerAlias) { // Variable from gameWorld.js
-                    protectorAlias = ` <span class="protector-alias">(${playerAlias})</span>`;
-                }
-            } else if (businessInfo.protectingOrganization) {
-                 protectionInfo = `(Protected by ${businessInfo.protectingOrganization.abbreviation})`; // Show if protected by others
-            }
+            // Find the player's contribution to this business's power
+            const playerProtectorInfo = businessInfo.protectingUsers.find(user => user.userId === currentPlayerId);
+            const playerContribution = playerProtectorInfo ? playerProtectorInfo.userPower : 0;
 
+            // Add data attribute for identification
+            listItem.dataset.businessId = businessInfo.id;
 
-            // Display name, alias (if applicable), profit, and protection status
+            // Display business name and player's contribution
             listItem.innerHTML = `
-                <span class="business-name">${businessInfo.name}${protectorAlias}</span>
-                <span class="business-profit">$${profit}</span>
-                <span class="business-protection">${protectionInfo}</span>
+                <div> <!-- Wrapper for text content -->
+                    <span class="business-name">${businessInfo.name}</span>
+                    <span class="business-protection">(Your Power: ${playerContribution})</span>
+                </div>
+                <button class="remove-protection-btn btn btn-red" data-business-id="${businessInfo.id}" style="display: none; margin-left: 10px;">Remove</button>
             `;
+            // Optional: Add total power of the business if desired
+            // listItem.innerHTML += `<span class="business-total-power"> (Total: ${businessInfo.protectionPower})</span>`;
+
             controlledBusinessesListElement.appendChild(listItem);
         }
-    });
+    }
 
-    // Add a summary line for total protection power?
-    if (controlledCount > 0) {
-        const summaryItem = document.createElement('li');
-        summaryItem.classList.add('protection-summary');
-        summaryItem.innerHTML = `<b>Total Protection Power: ${totalProtectionPower}</b>`;
-        controlledBusinessesListElement.appendChild(summaryItem); // Add to the end
-        // Only show if not minimized
-        if (!protectionBookElement.classList.contains('minimized')) {
-             protectionBookElement.style.display = 'block';
-        }
-    } else {
-         controlledBusinessesListElement.innerHTML = '<li>No businesses currently controlled.</li>';
-         // Keep book visible but show empty message (if not minimized)
-         if (!protectionBookElement.classList.contains('minimized')) {
-             protectionBookElement.style.display = 'block';
-         }
+    // Add a summary line showing player's protection count vs limit
+    const summaryItem = document.createElement('li');
+    summaryItem.classList.add('protection-summary'); // Keep class for potential styling
+    summaryItem.innerHTML = `<b>Protecting: ${playerProtectedCount} / ${MAX_PLAYER_PROTECTED_BUSINESSES} Businesses</b>`; // MAX_PLAYER_PROTECTED_BUSINESSES from gameWorld.js
+    controlledBusinessesListElement.appendChild(summaryItem); // Add to the end
+
+    // Show the book if it's not minimized (it's always relevant now)
+    if (!protectionBookElement.classList.contains('minimized')) {
+        protectionBookElement.style.display = 'block';
+    }
+
+    // Add a message if the player isn't protecting any businesses yet
+    if (playerProtectedCount === 0) {
+        const emptyMessage = document.createElement('li');
+        emptyMessage.textContent = 'You are not currently protecting any businesses.';
+        emptyMessage.style.fontStyle = 'italic';
+        emptyMessage.style.color = '#888';
+        // Insert before the summary item
+        controlledBusinessesListElement.insertBefore(emptyMessage, summaryItem);
     }
 }
 
@@ -1285,5 +1287,64 @@ document.addEventListener('DOMContentLoaded', () => {
     calculateCharacterStats(); // Calculate initial stats including Max HP (from gameWorld.js)
     updateHpUI(); // Show initial HP
     updateExperienceUI(); // Show initial EXP/Level
+
+    // --- Protection Book Interactivity ---
+    if (controlledBusinessesListElement) {
+        controlledBusinessesListElement.addEventListener('click', (event) => {
+            console.log("Click detected inside protection book list."); // Log: Listener fired
+            const target = event.target;
+            const listItem = target.closest('.controlled-business-item');
+            console.log("Clicked target:", target); // Log: Click target
+
+            if (!listItem) {
+                console.log("Click was outside a list item."); // Log: Click outside item
+                // Hide all buttons if clicking outside any item
+                controlledBusinessesListElement.querySelectorAll('.remove-protection-btn').forEach(btn => {
+                    btn.style.display = 'none';
+                });
+                return;
+            }
+
+            console.log("Clicked list item:", listItem); // Log: Found list item
+            const businessId = listItem.dataset.businessId;
+            const removeButton = listItem.querySelector('.remove-protection-btn');
+            console.log("Found remove button:", removeButton); // Log: Found button element
+
+            if (target.classList.contains('remove-protection-btn')) {
+                // Clicked the "Remove" button itself
+                console.log(`Remove button clicked for business ID: ${businessId}`); // Log: Button click
+                if (typeof removePlayerProtection === 'function') {
+                    removePlayerProtection(businessId); // Call function in gameWorld.js
+                } else {
+                    console.error("removePlayerProtection function not found in gameWorld.js");
+                    showCustomAlert("Error: Cannot remove protection.");
+                }
+            } else if (removeButton) {
+                // Clicked the list item (or its children), but NOT the remove button
+                console.log(`List item clicked (not button) for business ID: ${businessId}`); // Log: Item click
+
+                // Determine if the button for *this* item was already visible
+                const wasThisButtonVisible = removeButton.style.display !== 'none';
+
+                // First, hide ALL remove buttons unconditionally
+                controlledBusinessesListElement.querySelectorAll('.remove-protection-btn').forEach(btn => {
+                    btn.style.display = 'none';
+                });
+
+                // If this item's button was NOT visible before, show it now.
+                if (!wasThisButtonVisible) {
+                    removeButton.style.display = 'inline-block'; // Use inline-block for button
+                    console.log(`Showing remove button for ${businessId}`); // Log: Showing button
+                } else {
+                    console.log(`Hiding remove button for ${businessId} (was already visible)`); // Log: Hiding button (because it was clicked again or background was clicked)
+                }
+            } else {
+                 console.log("Clicked list item, but no remove button found within it."); // Log: Button missing?
+            }
+        });
+    } else {
+        console.error("Controlled businesses list element not found for interaction listener.");
+    }
+
 
 }); // Close DOMContentLoaded listener

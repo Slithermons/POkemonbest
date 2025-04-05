@@ -45,9 +45,9 @@ const itemsDatabase = new Map();
 
 // --- Consumables ---
 // Updated MED001 and MED002 with specific HP values and names
-itemsDatabase.set('MED001', new Item('MED001', 'Standard Medkit', 'Replenishes 100 HP.', ItemType.CONSUMABLE, ConsumableType.MEDKIT, true, 10, { health: 100 }));
-itemsDatabase.set('MED002', new Item('MED002', 'Large Medkit', 'Replenishes 500 HP.', ItemType.CONSUMABLE, ConsumableType.MEDKIT, true, 5, { health: 500 })); // Lowered stack size for large medkit
-itemsDatabase.set('FOOD001', new Item('FOOD001', 'Canned Beans', 'Provides basic sustenance.', ItemType.CONSUMABLE, ConsumableType.FOOD, true, 20));
+itemsDatabase.set('MED001', new Item('MED001', 'Standard Medkit', 'Replenishes 100 HP.', ItemType.CONSUMABLE, ConsumableType.MEDKIT, true, 90, { health: 100 }));
+itemsDatabase.set('MED002', new Item('MED002', 'Large Medkit', 'Replenishes 500 HP.', ItemType.CONSUMABLE, ConsumableType.MEDKIT, true, 9, { health: 500 })); // Lowered stack size for large medkit
+itemsDatabase.set('FOOD001', new Item('FOOD001', 'Canned Beans', 'Provides basic sustenance.', ItemType.CONSUMABLE, ConsumableType.FOOD, true, 90, { health: 50 }));
 itemsDatabase.set('FOOD002', new Item('FOOD002', 'Energy Bar', 'Quick energy boost.', ItemType.CONSUMABLE, ConsumableType.FOOD, true, 15));
 itemsDatabase.set('DRUG001', new Item('DRUG001', 'Adrenaline Shot', 'Temporarily boosts speed.', ItemType.CONSUMABLE, ConsumableType.DRUG, true, 5));
 itemsDatabase.set('DRUG002', new Item('DRUG002', 'Painkillers', 'Temporarily increases damage resistance.', ItemType.CONSUMABLE, ConsumableType.DRUG, true, 8));

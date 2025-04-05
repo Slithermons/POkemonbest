@@ -81,7 +81,7 @@ class Enemy {
                     { itemId: 'FOOD001', chance: 0.3, quantity: [1, 2] }, // Canned Beans
                     { itemId: 'CRAFT001', chance: 0.2, quantity: [1, 3] }, // Scrap Metal
                     { itemId: 'MED002', chance: 0.1, quantity: [1, 1] },  // Bandages
-                    { itemId: 'MONEY', chance: 0.7, quantity: [20, 50] } // Added: 20-50$
+                    { itemId: 'MONEY', chance: 1, quantity: [20, 50] } // Added: 20-50$
                 ];
                 break;
             case "Soldiers":
@@ -91,7 +91,7 @@ class Enemy {
                     { itemId: 'CRAFT001', chance: 0.4, quantity: [2, 5] }, // Scrap Metal
                     { itemId: 'CRAFT002', chance: 0.15, quantity: [1, 1] }, // Duct Tape
                     { itemId: 'UTIL003', chance: 0.05, quantity: [1, 1] }, // Brass Knuckles (low chance)
-                    { itemId: 'MONEY', chance: 0.75, quantity: [50, 100] } // Added: 50-100$
+                    { itemId: 'MONEY', chance: 1, quantity: [50, 100] } // Added: 50-100$
                 ];
                 break;
             case "Caporegimes":
@@ -102,7 +102,7 @@ class Enemy {
                     { itemId: 'CRAFT002', chance: 0.5, quantity: [1, 3] }, // Duct Tape
                     { itemId: 'KEY001', chance: 0.1, quantity: [1, 1] },   // Warehouse Key (rare)
                     { itemId: 'RING002', chance: 0.08, quantity: [1, 1] },  // Capo's Signet (rare)
-                    { itemId: 'MONEY', chance: 0.8, quantity: [100, 500] } // Added: 100-500$
+                    { itemId: 'MONEY', chance: 1, quantity: [100, 500] } // Added: 100-500$
                 ];
                 break;
             default: // Default case if name doesn't match (shouldn't happen)
