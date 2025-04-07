@@ -379,14 +379,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const soundToggle = document.getElementById('sound-toggle');
         if (soundToggle) soundToggle.checked = isSoundEnabled;
         console.log(`Initial sound state set from loaded/default: ${isSoundEnabled}`);
-        // Attempt BGM play based on loaded state AFTER audio assets are ready
-        audioPreloadPromise.finally(() => {
-            if (isSoundEnabled) {
-                playBgm();
-            } else {
-                stopBgm();
-            }
-        });
+        // REMOVED: Automatic BGM play attempt on load. Rely on toggle interaction.
+        // audioPreloadPromise.finally(() => {
+        //     if (isSoundEnabled) {
+        //         playBgm();
+        //     } else {
+        //         stopBgm();
+        //     }
+        // });
 
 
         // --- Location Fetching ---

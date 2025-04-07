@@ -1226,20 +1226,40 @@ function activateProtection(businessId) {
     }
 }
 
-// Function to fetch nearby businesses (shops, restaurants, cafes)
+// Function to fetch nearby businesses based on the allowed list
 async function fetchBusinessesInBounds(bounds) {
     const overpassUrl = 'https://overpass-api.de/api/interpreter';
+    // Expanded query to fetch all potentially relevant types
     const query = `
-        [out:json][timeout:25];
+        [out:json][timeout:30];
         (
-          node["shop"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
-          way["shop"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
-          node["amenity"~"restaurant|cafe|fast_food|bar|pub"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
-          way["amenity"~"restaurant|cafe|fast_food|bar|pub"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+          // Shops
+          node["shop"~"^(clothes|shoes|books|toys|supermarket|department_store|electrical|hairdresser|barber|sports)$"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+          way["shop"~"^(clothes|shoes|books|toys|supermarket|department_store|electrical|hairdresser|barber|sports)$"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+          // Amenities
+          node["amenity"~"^(fast_food|cafe|university|kindergarten|car_wash|fuel)$"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+          way["amenity"~"^(fast_food|cafe|university|kindergarten|car_wash|fuel)$"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+          // Tourism
+          node["tourism"~"^(motel|bed_and_breakfast)$"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+          way["tourism"~"^(motel|bed_and_breakfast)$"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+          // Aeroway
+          node["aeroway"~"^(aerodrome|terminal)$"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+          way["aeroway"~"^(aerodrome|terminal)$"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+          // Railway/Transport
+          node["railway"="station"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+          way["railway"="station"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+          node["public_transport"="station"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+          way["public_transport"="station"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+          // Craft
+          node["craft"="electrician"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+          way["craft"="electrician"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+          // Leisure
+          node["leisure"="fitness_centre"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
+          way["leisure"="fitness_centre"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
         );
         out center;
     `;
-    console.log("Querying Overpass API for businesses in bounds:", bounds);
+    console.log("Querying Overpass API for specific business types in bounds:", bounds);
     try {
         const response = await fetch(overpassUrl, { method: 'POST', body: query });
         const data = await response.json();
@@ -1252,12 +1272,23 @@ async function fetchBusinessesInBounds(bounds) {
     }
 }
 
-// Function to process raw Overpass business elements
+// Set of allowed business tag values based on the latest user request
+const allowedBusinessTags = new Set([
+    // shop=*
+    'clothes', 'supermarket',
+    // amenity=*
+    'cafe', 'university', 'fuel',
+    // railway=* / public_transport=*
+    'station',
+    // leisure=*
+    'fitness_centre' // For Gym
+]);
+
+// Function to process raw Overpass business elements, filtering by allowed types
 function processBusinessElements(elements) {
     const businesses = [];
     elements.forEach(element => {
         const tags = element.tags || {};
-        const name = tags.name || tags.shop || tags.amenity || "Unnamed Business";
         let lat, lon;
 
         if (element.type === "node") {
@@ -1267,37 +1298,54 @@ function processBusinessElements(elements) {
             lat = element.center.lat;
             lon = element.center.lon;
         } else {
-            return;
+            return; // Skip if no coordinates found
         }
 
-        // Basic profit potential (can be refined)
-        const potential = tags.shop === 'supermarket' ? 100 : (tags.amenity === 'restaurant' ? 75 : 50);
+        // --- Filtering Logic ---
+        let matchedTagValue = null;
+        let matchedTagKey = null;
 
-        // Only add to cache if not already present
-        if (!businessesCache[element.id]) {
-            // Check if it's a store OR convenience store
-            const isActualShop = tags.shop === 'store' || tags.shop === 'convenience';
-            // --- Custom Change: Handle 'fast_food' as 'ABANDON BUILDING' ---
-            let businessType = tags.shop || tags.amenity;
-            let isAbandoned = false;
-            let isAdSpace = false; // Add flag for Ad Space
-            if (tags.amenity === 'fast_food') {
-                businessType = 'ABANDON BUILDING';
-                isAbandoned = true;
-            } else if (tags.shop === 'mall') { // Check for mall
-                businessType = 'YOUR ADS HERE';
-                isAdSpace = true;
+        // Check relevant tags against the allowed set
+        const relevantTags = ['shop', 'amenity', 'tourism', 'aeroway', 'railway', 'public_transport', 'craft', 'leisure'];
+        for (const key of relevantTags) {
+            const value = tags[key];
+            if (value && allowedBusinessTags.has(value)) {
+                matchedTagValue = value;
+                matchedTagKey = key;
+                break; // Found a match, stop checking
             }
-            // --- End Custom Change ---
+        }
+
+        // If no allowed tag was found, skip this element
+        if (!matchedTagValue) {
+            // console.log(`Skipping element ${element.id} - Type not in allowed list. Tags:`, tags);
+            return;
+        }
+        // --- End Filtering Logic ---
+
+        // Only add to cache if not already present (and it's an allowed type)
+        if (!businessesCache[element.id]) {
+            const name = tags.name || matchedTagValue.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()); // Use name tag or formatted tag value
+            const businessType = matchedTagValue; // Use the matched tag value as the type
+
+            // Basic profit potential (can be refined based on type)
+            let potential = 50; // Default
+            if (businessType === 'supermarket' || businessType === 'department_store') potential = 100;
+            else if (businessType === 'airport' || businessType === 'university') potential = 75;
+
+            // Check if it's a shop (for the shop button) - refine this list
+            const shopTypes = ['clothes', 'shoes', 'books', 'toys', 'supermarket', 'department_store', 'electrical', 'hairdresser', 'barber', 'sports'];
+            const isActualShop = shopTypes.includes(businessType);
+
             const businessInfo = {
                 id: element.id,
                 name: name,
-                isShop: isActualShop, // Add the flag here
+                isShop: isActualShop, // Flag for shop button
                 lat: lat,
                 lon: lon,
-                type: businessType, // Use modified type
-                isAbandoned: isAbandoned, // Add abandoned flag
-                isAdSpace: isAdSpace, // Add ad space flag
+                type: businessType, // The specific allowed type (e.g., 'clothes', 'cafe')
+                isAbandoned: false, // Removed abandoned logic
+                isAdSpace: false, // Removed ad space logic
                 potential: potential, // Base potential for income
                 lastCollected: 0, // Timestamp of last collection
                 isControlled: false, // Default to not controlled (for profit)
@@ -1311,6 +1359,7 @@ function processBusinessElements(elements) {
             businesses.push(businessInfo); // Add to the list to be displayed *now*
         }
     });
+    console.log(`Processed ${elements.length} elements, added ${businesses.length} new allowed businesses to cache.`);
     return businesses; // Return only newly processed businesses for displayBusinesses
 }
 
@@ -1351,47 +1400,14 @@ function updateSingleBusinessMarker(businessId) {
         return false;
      }
 
-     // --- Handle Ad Spaces (Malls) ---
-     if (businessInfo.isAdSpace) {
-         businessInfo.marker.setIcon(adsIcon); // Use the ads icon
-         const adSpacePopupContent = `<b>YOUR ADS HERE</b><br>(Coming Soon...)`;
-         // Update popup only if content differs
-         if (businessInfo.marker.getPopup().getContent() !== adSpacePopupContent) {
-             businessInfo.marker.setPopupContent(adSpacePopupContent);
-         }
-         // Ensure no control/protection styling or status
-         businessInfo.isControlled = false;
-         const markerElement = businessInfo.marker.getElement();
-         if (markerElement) {
-             markerElement.classList.remove('protected-by-player-org');
-         }
-         // Return true if status changed (e.g., from controlled/protected to ad space)
-         return previousControlStatus !== false || previousProtectionPower !== 0;
-     }
-     // --- End Ad Space Handling ---
+     // Removed Ad Space and Abandoned Building specific logic
 
-     // --- Handle Abandoned Buildings ---
-     if (businessInfo.isAbandoned) {
-         businessInfo.marker.setIcon(abandonedBuildingIcon); // Use the new icon
-         const abandonedPopupContent = `<b>ABANDON BUILDING</b><br>(Coming Soon...)`;
-         // Update popup only if content differs
-         if (businessInfo.marker.getPopup().getContent() !== abandonedPopupContent) {
-             businessInfo.marker.setPopupContent(abandonedPopupContent);
-         }
-         // Ensure no control/protection styling or status
-         businessInfo.isControlled = false;
-         const markerElement = businessInfo.marker.getElement();
-         if (markerElement) {
-             markerElement.classList.remove('protected-by-player-org');
-         }
-         // Return true if status changed (e.g., from controlled/protected to abandoned)
-         return previousControlStatus !== false || previousProtectionPower !== 0;
-     }
-     // --- End Abandoned Building Handling ---
-
-     // Determine the correct icon for non-abandoned businesses
+     // Determine the correct icon for businesses
+     // Use shopIcon if isShop is true, otherwise use customBusinessIcon
      const currentIcon = businessInfo.isShop ? shopIcon : customBusinessIcon;
-     let currentPopupContent = `<b>${businessInfo.name}</b><br>(${businessInfo.type})`;
+     // Format the type string for display (replace underscores, capitalize)
+     const displayType = businessInfo.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+     let currentPopupContent = `<b>${businessInfo.name}</b><br>(${displayType})`;
      let isNowControlled = false; // For profit collection
 
      // --- Determine Profit Control Status (Only for non-abandoned) ---
@@ -1741,16 +1757,33 @@ function applyLoadedBusinessState() {
     for (const businessId in loadedBusinesses) {
         const savedBizData = loadedBusinesses[businessId];
         // Check if this business exists in the current runtime cache
-        if (businessesCache[businessId]) {
-            // Merge saved state into the existing cache entry
-            businessesCache[businessId].lastCollected = savedBizData.lastCollected || businessesCache[businessId].lastCollected || 0;
-            businessesCache[businessId].protectingOrganization = savedBizData.protectingOrganization || businessesCache[businessId].protectingOrganization || null;
-            businessesCache[businessId].protectionPower = savedBizData.protectionPower || businessesCache[businessId].protectionPower || 0;
-            businessesCache[businessId].protectingUsers = savedBizData.protectingUsers || businessesCache[businessId].protectingUsers || [];
+        const runtimeBiz = businessesCache[businessId];
+
+        if (runtimeBiz) {
+            // --- FILTER CHECK: Only merge if the type is allowed ---
+            if (typeof allowedBusinessTags === 'undefined' || !allowedBusinessTags.has(runtimeBiz.type)) {
+                console.log(`Skipping merge for saved business ${businessId} (${runtimeBiz.name}) - Type '${runtimeBiz.type}' not allowed.`);
+                // Optionally remove marker if it exists
+                if (runtimeBiz.marker && businessLayer.hasLayer(runtimeBiz.marker)) {
+                    businessLayer.removeLayer(runtimeBiz.marker);
+                }
+                // Remove from cache to prevent further processing
+                delete businessesCache[businessId];
+                displayedBusinessIds.delete(businessId);
+                continue; // Skip to the next saved business
+            }
+            // --- End Filter Check ---
+
+            // Merge saved state into the existing cache entry (only if allowed type)
+            runtimeBiz.lastCollected = savedBizData.lastCollected || runtimeBiz.lastCollected || 0;
+            runtimeBiz.protectingOrganization = savedBizData.protectingOrganization || runtimeBiz.protectingOrganization || null;
+            runtimeBiz.protectionPower = savedBizData.protectionPower || runtimeBiz.protectionPower || 0;
+            runtimeBiz.protectingUsers = savedBizData.protectingUsers || runtimeBiz.protectingUsers || [];
             updatedIds.add(businessId); // Mark as updated
             mergeCount++;
         } else {
-             // Log if a saved business isn't in the current cache after initial load
+             // Log if a saved business isn't in the current runtime cache after initial load
+             // This might happen if the Overpass query changed and the business is no longer fetched.
              // console.warn(`Saved business ${businessId} not found in current runtime cache during apply. State not merged.`);
         }
     }

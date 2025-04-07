@@ -517,7 +517,7 @@ function displayBases(bases) {
     // Popup listener is attached once via handlePopupOpenForActions
 }
 
-// Function to display business markers, checking territory
+// Function to display business markers, checking territory AND filtering by allowed types
 function displayBusinesses(businesses) {
      businesses.forEach(businessInfo => {
         // This function now primarily adds *new* markers. Updates are handled by updateBusinessMarkers.
@@ -525,9 +525,23 @@ function displayBusinesses(businesses) {
              return;
          }
 
+         // --- FINAL FILTER: Ensure only allowed business types are displayed ---
+         // allowedBusinessTags is defined globally in gameWorld.js
+         if (typeof allowedBusinessTags === 'undefined' || !allowedBusinessTags.has(businessInfo.type)) {
+            // console.log(`Skipping display of business ${businessInfo.id} (${businessInfo.name}) - Type '${businessInfo.type}' not allowed.`);
+            // Remove from cache if it somehow got there (belt-and-suspenders)
+            if (businessesCache[businessInfo.id]) {
+                delete businessesCache[businessInfo.id];
+            }
+            return; // Do not create a marker for this business
+         }
+         // --- End Final Filter ---
+
          // Use the correct icon from the start based on the isShop flag
          let icon = businessInfo.isShop ? shopIcon : customBusinessIcon;
-         let popupContent = `<b>${businessInfo.name}</b><br>(${businessInfo.type})`;
+         // Format the type string for display (replace underscores, capitalize) - Moved from updateSingleBusinessMarker
+         const displayType = businessInfo.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+         let popupContent = `<b>${businessInfo.name}</b><br>(${displayType})`;
          let isControlled = false; // Assume not controlled initially
 
         // Initial control check (will be re-checked by updateBusinessMarkers in gameWorld.js)

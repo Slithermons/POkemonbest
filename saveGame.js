@@ -10,10 +10,17 @@ const LOCAL_STORAGE_KEY = 'mobfiGameState';
 // --- Initialization ---
 function initializeSupabase() {
     try {
-        supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        console.log('Supabase client initialized.');
-        // Optional: Add listener for auth changes if using Supabase Auth
-        // supabase.auth.onAuthStateChange((event, session) => {
+        // Access createClient from the global scope (window.supabase)
+        if (window.supabase && typeof window.supabase.createClient === 'function') {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            console.log('Supabase client initialized.');
+            // Optional: Add listener for auth changes if using Supabase Auth
+            // supabase.auth.onAuthStateChange((event, session) => {
+        } else {
+            console.error('Supabase library not found or createClient is not a function.');
+            // Handle the case where the library didn't load correctly
+            supabase = null; // Ensure supabase is null if initialization fails
+        }
         //     console.log('Auth state changed:', event, session);
         //     // Handle user login/logout, potentially trigger load/sync
         // });
@@ -159,16 +166,35 @@ async function fetchLeaderboard(type = 'money', limit = 10) {
 
 // --- Combined Save Function ---
 // This function should be called whenever the game state changes significantly
-async function saveGame(gameState) {
+async function saveGame(gameState) { // Ensure function is async
     // 1. Save locally immediately
     saveGameLocally(gameState);
 
     // 2. Attempt to sync relevant parts to Supabase
     //    Requires proper user identification (Auth)
-    const currentUser = supabase?.auth?.user(); // Example: Get current user if using Auth
-    const userId = currentUser?.id; // This needs to be correctly obtained
+    let userId = null;
+    if (supabase?.auth) { // Check if supabase and auth are initialized
+        try {
+            // Correct way to get the user in Supabase v2
+            const { data: { user }, error: authError } = await supabase.auth.getUser();
+            if (authError) {
+                console.error("Error getting Supabase user:", authError);
+            } else if (user) {
+                userId = user.id; // Get the user ID
+                console.log("User ID obtained for saving:", userId); // Log success
+            } else {
+                console.log("No Supabase user currently logged in for saving.");
+            }
+        } catch (error) {
+             console.error("Exception while getting Supabase user:", error);
+        }
+    } else {
+        console.warn("Supabase auth not available for saving game.");
+    }
+
 
     if (userId && gameState.player) {
+         console.log(`Attempting to sync user data for ID: ${userId}`); // Log sync attempt
          // Prepare user data object matching the 'users' table structure
         const userDataToSync = {
             id: userId, // Make sure this ID matches the one in Supabase Auth
