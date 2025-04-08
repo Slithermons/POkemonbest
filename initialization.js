@@ -262,7 +262,31 @@ function prepareBaseItemsForShop() {
 
 // 2. Start the game initialization process *after* the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("DOM fully loaded. Initializing map and game...");
+    console.log("DOM fully loaded. Checking authentication...");
+
+    // --- Cardano Wallet Authentication Check ---
+    const playerStakeAddress = localStorage.getItem('playerCardanoStakeAddress');
+    if (!playerStakeAddress) {
+        console.log("No Cardano stake address found in localStorage. Redirecting to login.");
+        window.location.href = 'login.html'; // Redirect to login page
+        return; // Stop further initialization on this page
+    } else {
+        console.log(`Cardano user authenticated. Stake Address: ${playerStakeAddress}`);
+        // --- Set the global currentPlayerId (assuming it's defined in gameWorld.js) ---
+        if (typeof currentPlayerId !== 'undefined') {
+            currentPlayerId = playerStakeAddress; // Use stake address as the unique ID
+            console.log(`Global currentPlayerId set to: ${currentPlayerId}`);
+        } else {
+            console.error("Global variable 'currentPlayerId' not found in gameWorld.js! Saving might fail.");
+            // Potentially show an error to the user or try defining it here (less ideal)
+            // window.currentPlayerId = playerStakeAddress; // Less ideal fallback
+        }
+        // --- End Set currentPlayerId ---
+    }
+    // --- End Authentication Check ---
+
+
+    console.log("Authentication successful. Initializing map and game...");
 
     // --- Initialize Supabase ---
     if (typeof SaveManager !== 'undefined' && typeof SaveManager.initializeSupabase === 'function') {
@@ -354,25 +378,117 @@ document.addEventListener('DOMContentLoaded', () => {
             loadedGameState = await SaveManager.loadGame(); // Load local or default
             // Apply loaded state to the global gameState (assuming it exists in gameWorld.js)
             if (typeof gameState !== 'undefined' && loadedGameState) {
-                 Object.assign(gameState, loadedGameState); // Merge loaded state into global state
-                 console.log("Loaded game state applied:", gameState);
-            } else if (!loadedGameState) {
-                 console.error("Failed to load game state from SaveManager.");
-                 // Proceed with default state potentially already in gameState
-            } else {
-                 console.warn("Global gameState object not found. Loaded state not applied globally.");
-            }
+             Object.assign(gameState, loadedGameState); // Merge loaded state into global state
+             console.log("Loaded game state applied:", gameState);
+
+             // --- Apply Loaded Player State to Global Variables ---
+             // Ensure global variables in gameWorld.js are updated from the loaded state
+             const loadedPlayer = loadedGameState.player;
+             if (typeof playerCurrentHp !== 'undefined' && loadedPlayer.hp !== undefined) {
+                 playerCurrentHp = loadedPlayer.hp;
+                 console.log(`Applied loaded HP to global variable: ${playerCurrentHp}`);
+             }
+             if (typeof playerMaxHp !== 'undefined' && loadedPlayer.maxHp !== undefined) {
+                 // Option 1: Use saved maxHp directly (if saved)
+                 // playerMaxHp = loadedPlayer.maxHp;
+                 // Option 2: Recalculate based on loaded stats (safer if maxHp depends on stats/level)
+                 if (typeof calculateMaxHp === 'function' && loadedPlayer.stats && loadedPlayer.level !== undefined) {
+                     playerMaxHp = calculateMaxHp(loadedPlayer.level, loadedPlayer.stats.vitality);
+                     console.log(`Recalculated Max HP based on loaded state: ${playerMaxHp}`);
+                 } else {
+                     playerMaxHp = loadedPlayer.maxHp || 100; // Fallback
+                     console.log(`Applied loaded Max HP directly (or fallback): ${playerMaxHp}`);
+                 }
+             }
+             if (typeof playerInventory !== 'undefined' && Array.isArray(loadedPlayer.inventory)) {
+                 // Replace the entire inventory array
+                 playerInventory.length = 0; // Clear existing array first
+                 playerInventory.push(...loadedPlayer.inventory); // Add items from loaded state
+                 console.log(`Applied loaded inventory to global variable. Count: ${playerInventory.length}`);
+             }
+             if (typeof playerEquipment !== 'undefined' && typeof loadedPlayer.equipment === 'object' && loadedPlayer.equipment !== null) {
+                 // Replace the equipment object
+                 Object.keys(playerEquipment).forEach(key => delete playerEquipment[key]); // Clear existing
+                 Object.assign(playerEquipment, loadedPlayer.equipment); // Assign loaded equipment
+                 console.log(`Applied loaded equipment to global variable:`, playerEquipment);
+             }
+             if (typeof playerStats !== 'undefined' && typeof loadedPlayer.stats === 'object' && loadedPlayer.stats !== null) {
+                 Object.assign(playerStats, loadedPlayer.stats); // Merge loaded stats
+                 console.log(`Applied loaded stats to global variable:`, playerStats);
+             }
+             if (typeof playerLevel !== 'undefined' && loadedPlayer.level !== undefined) {
+                 playerLevel = loadedPlayer.level;
+                 console.log(`Applied loaded level to global variable: ${playerLevel}`);
+             }
+             if (typeof playerExperience !== 'undefined' && loadedPlayer.experience !== undefined) {
+                 playerExperience = loadedPlayer.experience;
+                 console.log(`Applied loaded experience to global variable: ${playerExperience}`);
+             }
+             if (typeof playerAlias !== 'undefined' && loadedPlayer.alias !== undefined) {
+                 playerAlias = loadedPlayer.alias;
+                 console.log(`Applied loaded alias to global variable: ${playerAlias}`);
+             }
+             if (typeof playerUsername !== 'undefined' && loadedPlayer.username !== undefined) {
+                 playerUsername = loadedPlayer.username;
+                 console.log(`Applied loaded username to global variable: ${playerUsername}`);
+             }
+             if (typeof playerPower !== 'undefined' && loadedPlayer.power !== undefined) {
+                 playerPower = loadedPlayer.power;
+                 console.log(`Applied loaded power to global variable: ${playerPower}`);
+             }
+             // Apply cash separately below to ensure UI update happens
+             // Apply organization separately below to ensure UI update happens
+
+             // Recalculate derived stats after applying base stats/equipment
+             if (typeof calculateCharacterStats === 'function') {
+                 calculateCharacterStats();
+                 console.log("Recalculated character stats after applying loaded state.");
+             }
+             // --- End Apply Loaded Player State ---
+
+        } else if (!loadedGameState) {
+             console.error("Failed to load game state from SaveManager.");
+             // Proceed with default state potentially already in gameState
         } else {
-            console.error("SaveManager or loadGame not found! Cannot load saved data.");
-            // Rely on default state defined elsewhere (e.g., gameWorld.js)
+             console.warn("Global gameState object not found. Loaded state not applied globally.");
         }
+    } else {
+        console.error("SaveManager or loadGame not found! Cannot load saved data.");
+        // Rely on default state defined elsewhere (e.g., gameWorld.js)
+    }
 
-        // Use loaded state or defaults
-        const currentPlayerState = (typeof gameState !== 'undefined' && gameState.player) ? gameState.player : getDefaultGameState().player; // Fallback needed if gameState isn't defined globally
-        const currentSettings = (typeof gameState !== 'undefined' && gameState.settings) ? gameState.settings : getDefaultGameState().settings;
+    // Use loaded state or defaults (currentPlayerState now reflects the applied loaded data if successful)
+    const currentPlayerState = (typeof gameState !== 'undefined' && gameState.player) ? gameState.player : getDefaultGameState().player; // Fallback needed if gameState isn't defined globally
+    const currentSettings = (typeof gameState !== 'undefined' && gameState.settings) ? gameState.settings : getDefaultGameState().settings;
 
-        let initialLat = 51.505, initialLon = -0.09; // Default location
-        let locationPermissionGranted = false;
+    // --- Apply Loaded Cash & Org (with UI updates) ---
+    if (typeof currentCash !== 'undefined' && currentPlayerState.cash !== undefined) {
+         currentCash = currentPlayerState.cash; // Explicitly set global cash
+         console.log(`Applied loaded cash to global variable: ${currentCash}`);
+         if (typeof updateCashUI === 'function') {
+             updateCashUI(currentCash); // Update UI
+         } else {
+             console.error("updateCashUI function not found during game initialization!");
+         }
+    }
+    if (typeof currentUserOrganization !== 'undefined' && currentPlayerState.organization !== undefined) {
+        currentUserOrganization = currentPlayerState.organization; // Update global org object
+        console.log(`Applied loaded organization to global variable:`, currentUserOrganization);
+    }
+    if (typeof currentOrganizationBaseLocation !== 'undefined' && currentPlayerState.orgBaseLocation !== undefined) {
+        currentOrganizationBaseLocation = currentPlayerState.orgBaseLocation; // Update global org base location
+        console.log(`Applied loaded org base location to global variable:`, currentOrganizationBaseLocation);
+    }
+    if (typeof updateOrganizationUI === 'function') {
+        updateOrganizationUI(); // Update Org UI after applying state
+    } else {
+        console.error("updateOrganizationUI function not found during game initialization!");
+    }
+    // --- End Apply Loaded Cash & Org ---
+
+
+    let initialLat = 51.505, initialLon = -0.09; // Default location
+    let locationPermissionGranted = false;
 
         // --- Apply Loaded Settings ---
         isSoundEnabled = currentSettings.soundOn;

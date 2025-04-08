@@ -608,7 +608,13 @@ function endBattle(playerWon) {
     // --- Save Game State After Battle ---
     if (typeof SaveManager !== 'undefined' && SaveManager.saveGame && typeof gatherCurrentGameState === 'function') {
         console.log("Saving game state after battle conclusion.");
-        SaveManager.saveGame(gatherCurrentGameState());
+        SaveManager.saveGame(gatherCurrentGameState()).catch(err => {
+            // Silently ignore expected AuthSessionMissingError, log others
+            if (!(err instanceof Error && (err.message === 'Auth session missing!' || err.name === 'AuthSessionMissingError'))) {
+                 console.error("Unexpected save error after battle:", err); // Log unexpected errors
+            }
+             // Do nothing if it's the expected error
+        });
     } else {
         console.error("Could not save game after battle: SaveManager or gatherCurrentGameState not found.");
     }

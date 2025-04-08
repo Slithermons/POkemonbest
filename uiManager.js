@@ -49,7 +49,7 @@ const shopIcon = L.icon({
 
 // Define a cash drop icon (e.g., money bag)
 const cashIcon = L.icon({
-    iconUrl: 'https://img.icons8.com/external-flatart-icons-flat-flatarticons/64/000000/external-money-bag-valentines-day-flatart-icons-flat-flatarticons.png', // Example money bag icon
+    iconUrl: 'img/marker.png', // Use marker.png for cash drops
     iconSize: [40, 40], // Adjusted size
     iconAnchor: [20, 20],
     popupAnchor: [0, -20],
@@ -157,9 +157,13 @@ function updateCashUI(amount) {
     }
 }
 
+// --- State for Inventory Tab ---
+let currentInventoryCategory = 'all'; // Default to showing all items
+
 // Function to update the inventory UI (targets grid inside the modal)
-function updateInventoryUI() {
-    console.log('updateInventoryUI called. Current playerInventory:', JSON.stringify(playerInventory)); // playerInventory from gameWorld.js
+function updateInventoryUI(category = currentInventoryCategory) {
+    console.log(`updateInventoryUI called for category: ${category}. Current playerInventory:`, JSON.stringify(playerInventory)); // playerInventory from gameWorld.js
+    currentInventoryCategory = category; // Update the current category state
 
     const gridElement = document.getElementById('inventory-grid');
     if (!gridElement) {
@@ -189,15 +193,25 @@ function updateInventoryUI() {
         return acc;
     }, {});
 
-    // Populate slots with actual items
+    // Populate slots with actual items, filtering by category
     for (const itemId in groupedInventory) {
+        const itemDefinition = itemsDatabase.get(itemId) || equipmentDatabase.get(itemId); // Use the Maps
+
+        // --- Filtering Logic ---
+        // Check if the item matches the selected category (or if 'all' is selected)
+        // Assumes itemDefinition has a 'category' property (e.g., 'land', 'pets', 'painting', 'consumable', 'equipment')
+        const itemCategory = itemDefinition?.category?.toLowerCase() || 'other'; // Default category if undefined
+        if (category !== 'all' && itemCategory !== category) {
+            continue; // Skip this item if it doesn't match the selected category
+        }
+        // --- End Filtering Logic ---
+
         if (filledSlotsCount >= totalSlots) break; // Stop if grid is full
 
-        const itemDefinition = itemsDatabase.get(itemId) || equipmentDatabase.get(itemId); // Use the Maps
         const quantity = groupedInventory[itemId];
 
         if (itemDefinition) {
-            console.log(`updateInventoryUI - Rendering item: ${itemId}, Name: ${itemDefinition.name}, Quantity: ${quantity}`);
+            console.log(`updateInventoryUI - Rendering item: ${itemId}, Category: ${itemCategory}, Name: ${itemDefinition.name}, Quantity: ${quantity}`);
             const slotDiv = document.createElement('div');
             slotDiv.classList.add('inventory-slot');
             slotDiv.dataset.itemId = itemId; // Store item ID for potential click actions
@@ -425,6 +439,16 @@ function updateEquipmentUI() {
             itemDiv.style.textShadow = 'none';
         }
     });
+
+    // Update the Power display
+    const powerValueElement = document.getElementById('equipment-power-value');
+    if (powerValueElement) {
+        // playerPower is a global variable defined in gameWorld.js
+        powerValueElement.textContent = playerPower;
+    } else {
+        console.error("Equipment power value element not found!");
+    }
+
     console.log("Equipment UI updated.");
 }
 
@@ -1349,6 +1373,19 @@ document.addEventListener('DOMContentLoaded', () => {
     updateHpUI(); // Show initial HP
     updateExperienceUI(); // Show initial EXP/Level
 
+    // --- Display Wallet Address ---
+    const walletAddressElement = document.getElementById('user-wallet-address');
+    const storedStakeAddress = localStorage.getItem('playerCardanoStakeAddress');
+    if (walletAddressElement && storedStakeAddress) {
+        const truncatedAddress = `${storedStakeAddress.substring(0, 10)}...${storedStakeAddress.substring(storedStakeAddress.length - 6)}`;
+        walletAddressElement.textContent = truncatedAddress;
+        walletAddressElement.title = storedStakeAddress; // Show full address on hover
+    } else if (walletAddressElement) {
+        walletAddressElement.textContent = 'Error loading address';
+    }
+    // --- End Display Wallet Address ---
+
+
     // --- Protection Book Interactivity ---
     if (controlledBusinessesListElement) {
         controlledBusinessesListElement.addEventListener('click', (event) => {
@@ -1524,10 +1561,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Data structure from fetchLeaderboard: { username, level, money, power }
+        // Data structure from fetchLeaderboard: { username, alias, level, money, power }
         data.forEach((entry, index) => {
             const listItem = document.createElement('li');
             const score = type === 'money' ? entry.money : entry.power;
-            const playerName = entry.username || `User #${index + 1}`; // Fallback name
+            // Use username, fallback to alias, then fallback to generic User #
+            const playerName = entry.username || entry.alias || `User #${index + 1}`;
 
             listItem.innerHTML = `
                 <span>${index + 1}. <span class="player-name">${playerName}</span> (Lvl ${entry.level || '?'})</span>
@@ -1589,6 +1628,39 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.suiWallet && window.suiWallet.connected && window.suiWallet.address) {
          console.log('uiManager performing initial identity update for already connected wallet.');
          updatePlayerIdentityUI(window.suiWallet);
+    }
+
+    // --- Inventory Tab Listeners ---
+    const inventoryTabsContainer = document.querySelector('#inventory-modal .inventory-tabs');
+    if (inventoryTabsContainer) {
+        inventoryTabsContainer.addEventListener('click', (event) => {
+            if (event.target.classList.contains('tab-btn')) {
+                const selectedCategory = event.target.dataset.category;
+                if (selectedCategory) {
+                    // Remove active class from all tabs
+                    inventoryTabsContainer.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active-tab'));
+                    // Add active class to the clicked tab
+                    event.target.classList.add('active-tab');
+                    // Update the inventory display with the selected category
+                    updateInventoryUI(selectedCategory);
+                }
+            }
+        });
+    } else {
+        console.error("Inventory tabs container not found!");
+    }
+
+    // --- Logout Button Listener ---
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            console.log("Logout button clicked. Redirecting to login page.");
+            // Optional: Clear any local session data if needed before redirecting
+            // localStorage.clear(); // Example: Clears all local storage
+            window.location.href = 'login.html'; // Redirect to login page
+        });
+    } else {
+        console.error("Logout button not found!");
     }
 
 

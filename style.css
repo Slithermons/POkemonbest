@@ -921,7 +921,7 @@ body {
     border: 2px solid #8B4513; /* SaddleBrown border - classic mafia feel */
     border-radius: 5px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.7); /* Stronger shadow */
-    z-index: 10000; /* Ensure it's above everything */
+    z-index: 10003; /* Increased z-index to be above modals */
     min-width: 250px;
     max-width: 80%;
     text-align: center;
@@ -1656,6 +1656,42 @@ body {
     background-color: #25201a; /* Slightly different empty background */
 }
 
+/* --- Inventory Tabs --- */
+.inventory-tabs {
+    display: flex;
+    margin-bottom: 10px; /* Space between tabs and grid */
+    border-bottom: 2px solid #4a3c2a; /* Match modal border */
+}
+
+.inventory-tabs .tab-btn {
+    /* Inherit from general .tab-btn if defined, or style here */
+    flex-grow: 1;
+    padding: 8px 10px;
+    background-color: #444;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 0.9em;
+    text-align: center;
+    transition: background-color 0.2s ease, color 0.2s ease, border-bottom-color 0.2s ease;
+    border-radius: 4px 4px 0 0;
+    margin-bottom: -2px; /* Overlap the container border */
+}
+
+.inventory-tabs .tab-btn:hover {
+    background-color: #555;
+    color: #fff;
+}
+
+.inventory-tabs .tab-btn.active-tab {
+    background-color: #3a2f20; /* Match title bar */
+    color: #e0cda1; /* Match title text */
+    border-bottom: 3px solid #e0cda1; /* Highlight active tab */
+    font-weight: bold;
+}
+
+
 /* --- Battle Speed Controls --- */
 .battle-speed-controls {
     display: flex;
@@ -1841,4 +1877,183 @@ body {
     color: #888;
     text-align: center;
     justify-content: center;
+}
+
+/* --- Responsive Design (e.g., for 414px width) --- */
+@media (max-width: 767px) { /* Apply styles below tablet width */
+    #mobile-container {
+        width: 100%; /* Full width on smaller screens */
+        max-width: 100%;
+        height: 100vh; /* Full viewport height */
+        margin: 0; /* Remove margins */
+        border: none; /* Remove border */
+        box-shadow: none; /* Remove shadow */
+        border-radius: 0; /* Remove border-radius */
+    }
+
+    #dashboard {
+        min-width: 160px; /* Slightly narrower dashboard */
+        padding: 10px;
+        font-size: 0.9em; /* Slightly smaller font */
+    }
+
+    #dashboard h2 {
+        font-size: 1.1em;
+        margin-bottom: 10px;
+        padding-bottom: 5px;
+    }
+
+    .dashboard-section {
+        margin-bottom: 8px;
+    }
+
+    .hp-bar-container {
+        width: 80px; /* Narrower HP bar */
+        height: 10px;
+    }
+
+    #bottom-bar {
+        height: auto; /* Allow height to adjust */
+        padding: 5px 10px; /* Reduce padding */
+        flex-direction: column; /* Stack elements vertically */
+        align-items: stretch; /* Stretch items */
+    }
+
+    #player-info-bar {
+        margin-bottom: 5px; /* Space below player info */
+        justify-content: center; /* Center player info */
+    }
+
+    #action-buttons-bar {
+        justify-content: space-around; /* Space out buttons evenly */
+        max-width: 100%; /* Allow full width */
+        flex-wrap: wrap; /* Ensure wrapping */
+        gap: 5px; /* Reduce gap */
+    }
+
+    .action-btn {
+        width: 32px; /* Slightly smaller buttons */
+        height: 32px;
+        font-size: 1.1em;
+    }
+
+    /* Adjust Modals */
+    .modal-content {
+        width: 95% !important; /* Force width */
+        max-width: 95% !important;
+        padding: 15px !important; /* Reduce padding */
+        max-height: 90vh !important; /* Ensure it fits */
+    }
+
+    .modal-content h2 {
+        font-size: 1.2em !important;
+        margin-bottom: 15px !important;
+    }
+
+    .stats-modal-content {
+        grid-template-columns: 1fr; /* Stack stat sections */
+        gap: 15px;
+    }
+
+    .equipment-slots {
+        grid-template-columns: repeat(2, 1fr); /* 2 columns for equipment */
+        gap: 10px;
+    }
+
+    .inventory-grid {
+        grid-template-columns: repeat(4, 1fr); /* 4 columns for inventory */
+        gap: 5px;
+        padding: 5px;
+    }
+
+    .shop-interface {
+        flex-direction: column; /* Stack buy/sell */
+        gap: 10px;
+    }
+
+    .shop-section {
+        flex-basis: auto; /* Reset basis */
+        max-height: 35vh; /* Limit height of each section */
+    }
+
+    .battle-interface {
+        flex-direction: column; /* Stack player/enemy */
+        align-items: center;
+        gap: 10px;
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+    }
+
+    .battle-participant {
+        flex-basis: auto;
+        width: 80%; /* Control width */
+    }
+
+    .battle-vs {
+        padding: 5px 0;
+    }
+
+    .battle-actions {
+        gap: 10px;
+        flex-wrap: wrap; /* Allow actions to wrap */
+    }
+
+    .battle-log {
+        height: 100px; /* Reduce log height */
+    }
+
+    .leaderboard-tabs {
+        margin-bottom: 10px;
+    }
+
+    .tab-btn {
+        padding: 8px 10px;
+        font-size: 0.9em;
+    }
+
+    .leaderboard-content {
+        padding: 10px;
+        max-height: 50vh;
+    }
+
+    #leaderboard-money-list li,
+    #leaderboard-power-list li {
+        font-size: 0.9em;
+        padding: 6px 3px;
+    }
+
+    #custom-alert {
+        padding: 20px;
+        min-width: 200px;
+    }
+
+    #custom-alert p {
+        font-size: 1em;
+    }
+
+    #custom-alert button {
+        padding: 8px 16px;
+        font-size: 0.9em;
+    }
+
+}
+
+/* Further adjustments specifically for 414px if needed */
+@media (max-width: 414px) {
+    /* Example: Further reduce font size if needed */
+    body {
+        font-size: 15px; /* Adjust base font size */
+    }
+
+    .action-btn {
+        width: 30px;
+        height: 30px;
+        font-size: 1em;
+    }
+
+    #bottom-bar {
+        padding: 5px;
+    }
+
+    /* Add any other 414px specific overrides here */
 }

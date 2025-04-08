@@ -170,7 +170,13 @@ function initializeNewPlayerState(playerId) {
 
     // Save this initial state immediately using SaveManager
     if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
-        SaveManager.saveGame(gatherCurrentGameState());
+        SaveManager.saveGame(gatherCurrentGameState()).catch(err => {
+            // Silently ignore only the expected AuthSessionMissingError
+            if (!(err instanceof Error && (err.message === 'Auth session missing!' || err.name === 'AuthSessionMissingError'))) {
+                 console.error("Unexpected save error during new player init:", err); // Log other errors
+            }
+            // Otherwise, do nothing to suppress the expected error.
+        });
     } else {
         console.error("SaveManager not available during new player initialization!");
     }
@@ -433,7 +439,12 @@ function equipItem(itemId) {
 
     // Save game state after equipping
     if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
-        SaveManager.saveGame(gatherCurrentGameState());
+        SaveManager.saveGame(gatherCurrentGameState()).catch(err => {
+            // Silently ignore only the expected AuthSessionMissingError
+            if (!(err instanceof Error && (err.message === 'Auth session missing!' || err.name === 'AuthSessionMissingError'))) {
+                 console.error("Unexpected save error after equip:", err);
+            }
+        });
     }
 }
 
@@ -466,7 +477,12 @@ function unequipItem(slotType, triggerRecalculation = true) {
 
         // Save game state after unequipping
         if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
-            SaveManager.saveGame(gatherCurrentGameState());
+            SaveManager.saveGame(gatherCurrentGameState()).catch(err => {
+                // Silently ignore only the expected AuthSessionMissingError
+                if (!(err instanceof Error && (err.message === 'Auth session missing!' || err.name === 'AuthSessionMissingError'))) {
+                     console.error("Unexpected save error after unequip:", err);
+                }
+            });
         }
     }
 }
@@ -509,7 +525,12 @@ function gainExperience(amount) {
 
     // Save game state after experience gain/level up
     if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
-        SaveManager.saveGame(gatherCurrentGameState());
+        SaveManager.saveGame(gatherCurrentGameState()).catch(err => {
+            // Silently ignore only the expected AuthSessionMissingError
+            if (!(err instanceof Error && (err.message === 'Auth session missing!' || err.name === 'AuthSessionMissingError'))) {
+                 console.error("Unexpected save error after EXP gain:", err);
+            }
+        });
     }
 }
 
@@ -522,7 +543,12 @@ function healPlayer(amount) {
     updateHpUI(); // Update UI immediately (function defined in uiManager.js)
     // Save game state after healing
     if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
-        SaveManager.saveGame(gatherCurrentGameState());
+        SaveManager.saveGame(gatherCurrentGameState()).catch(err => {
+            // Silently ignore only the expected AuthSessionMissingError
+            if (!(err instanceof Error && (err.message === 'Auth session missing!' || err.name === 'AuthSessionMissingError'))) {
+                 console.error("Unexpected save error after heal:", err);
+            }
+        });
     }
 }
 
@@ -535,7 +561,12 @@ function damagePlayer(amount) {
 
     // Save game state after taking damage
     if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
-        SaveManager.saveGame(gatherCurrentGameState());
+        SaveManager.saveGame(gatherCurrentGameState()).catch(err => {
+             // Silently ignore only the expected AuthSessionMissingError
+            if (!(err instanceof Error && (err.message === 'Auth session missing!' || err.name === 'AuthSessionMissingError'))) {
+                 console.error("Unexpected save error after damage:", err);
+            }
+        });
     }
 }
 
@@ -605,7 +636,12 @@ function addItemToInventory(itemId, quantity = 1) {
 
     // Save game state after adding item (caller might also save, but this ensures it)
     if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
-        SaveManager.saveGame(gatherCurrentGameState());
+        SaveManager.saveGame(gatherCurrentGameState()).catch(err => {
+             // Silently ignore only the expected AuthSessionMissingError
+            if (!(err instanceof Error && (err.message === 'Auth session missing!' || err.name === 'AuthSessionMissingError'))) {
+                 console.error("Unexpected save error after adding item:", err);
+            }
+        });
     }
 }
 
@@ -638,7 +674,12 @@ function removeItemFromInventory(itemId, quantity = 1) {
 
             // Save game state after removing item
             if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
-                SaveManager.saveGame(gatherCurrentGameState());
+                SaveManager.saveGame(gatherCurrentGameState()).catch(err => {
+                     // Silently ignore only the expected AuthSessionMissingError
+                    if (!(err instanceof Error && (err.message === 'Auth session missing!' || err.name === 'AuthSessionMissingError'))) {
+                         console.error("Unexpected save error after removing item:", err);
+                    }
+                });
             }
             return true; // Indicate success
         } else {
@@ -937,7 +978,12 @@ function joinOrganizationManually(orgName, orgAbbr, baseLat, baseLon) {
 
         // Save game state after joining org
         if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
-            SaveManager.saveGame(gatherCurrentGameState());
+            SaveManager.saveGame(gatherCurrentGameState()).catch(err => {
+                 // Silently ignore only the expected AuthSessionMissingError
+                if (!(err instanceof Error && (err.message === 'Auth session missing!' || err.name === 'AuthSessionMissingError'))) {
+                     console.error("Unexpected save error after joining org:", err);
+                }
+            });
         }
     } else {
          showCustomAlert(`You are too far away from this base to join ${orgName}! You need to be within ${MANUAL_JOIN_DISTANCE}m. (Distance: ${distance.toFixed(1)}m)`); // Use custom alert (defined in uiManager.js)
@@ -988,7 +1034,12 @@ async function findAndJoinInitialOrganization(userLat, userLon) {
 
         // Save game state after auto-joining org
         if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
-            SaveManager.saveGame(gatherCurrentGameState());
+            SaveManager.saveGame(gatherCurrentGameState()).catch(err => {
+                 // Silently ignore only the expected AuthSessionMissingError
+                if (!(err instanceof Error && (err.message === 'Auth session missing!' || err.name === 'AuthSessionMissingError'))) {
+                     console.error("Unexpected save error after auto-joining org:", err);
+                }
+            });
         }
     } else if (baseWithinManualRangeExists) {
          console.log(`Bases found within ${MANUAL_JOIN_DISTANCE}m. User must join manually.`);
@@ -1016,7 +1067,12 @@ function leaveOrganization() {
 
     // Save game state after leaving org
     if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
-        SaveManager.saveGame(gatherCurrentGameState());
+        SaveManager.saveGame(gatherCurrentGameState()).catch(err => {
+             // Silently ignore only the expected AuthSessionMissingError
+            if (!(err instanceof Error && (err.message === 'Auth session missing!' || err.name === 'AuthSessionMissingError'))) {
+                 console.error("Unexpected save error after leaving org:", err);
+            }
+        });
     }
 }
 
@@ -1061,7 +1117,12 @@ function collectCash(cashMarker, cashLat, cashLon) {
         if (stateChanged && typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
              // Note: addItemToInventory already saves, so this might be redundant if item dropped
              // But it ensures cash changes are saved.
-            SaveManager.saveGame(gatherCurrentGameState());
+            SaveManager.saveGame(gatherCurrentGameState()).catch(err => {
+                 // Silently ignore only the expected AuthSessionMissingError
+                if (!(err instanceof Error && (err.message === 'Auth session missing!' || err.name === 'AuthSessionMissingError'))) {
+                     console.error("Unexpected save error after collecting cash:", err);
+                }
+            });
         }
     } else {
         // Too far away
@@ -1222,7 +1283,12 @@ function activateProtection(businessId) {
 
     // Save game state after activating protection
     if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
-        SaveManager.saveGame(gatherCurrentGameState());
+        SaveManager.saveGame(gatherCurrentGameState()).catch(err => {
+             // Silently ignore only the expected AuthSessionMissingError
+            if (!(err instanceof Error && (err.message === 'Auth session missing!' || err.name === 'AuthSessionMissingError'))) {
+                 console.error("Unexpected save error after activating protection:", err);
+            }
+        });
     }
 }
 
@@ -1565,7 +1631,12 @@ function collectProfit(businessId) {
 
              // Save game state after collecting profit
              if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
-                 SaveManager.saveGame(gatherCurrentGameState());
+                 SaveManager.saveGame(gatherCurrentGameState()).catch(err => {
+                     // Silently ignore only the expected AuthSessionMissingError
+                    if (!(err instanceof Error && (err.message === 'Auth session missing!' || err.name === 'AuthSessionMissingError'))) {
+                         console.error("Unexpected save error after collecting profit:", err);
+                    }
+                 });
              }
         } else {
             showCustomAlert(`${businessInfo.name} has no profit to collect currently.`); // Use custom alert (defined in uiManager.js)
@@ -1636,7 +1707,12 @@ function removePlayerProtection(businessId) {
 
     // Save game state after removing protection
     if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
-        SaveManager.saveGame(gatherCurrentGameState());
+        SaveManager.saveGame(gatherCurrentGameState()).catch(err => {
+             // Silently ignore only the expected AuthSessionMissingError
+            if (!(err instanceof Error && (err.message === 'Auth session missing!' || err.name === 'AuthSessionMissingError'))) {
+                 console.error("Unexpected save error after removing protection:", err);
+            }
+        });
     }
 }
 

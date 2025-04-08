@@ -75,6 +75,21 @@ async function syncUserData(userData) {
         return { error: 'User not authenticated or ID missing' };
     }
 
+    // --- ADDED: Detailed log before upsert ---
+    console.log(`[syncUserData] Attempting upsert for user ${userId} with data:`, JSON.stringify({
+        id: userId,
+        username: userData.username,
+        level: userData.level,
+        money: userData.money,
+        power: userData.power,
+        inventory: userData.inventory, // Log inventory being sent
+        equipment: userData.equipment, // Log equipment being sent
+        alias: userData.alias,
+        current_hp: userData.hp,
+        updated_at: new Date().toISOString()
+    }, null, 2)); // Pretty print JSON
+    // --- END ADDED ---
+
     const { data, error } = await supabase
         .from('users')
         .upsert({
@@ -83,6 +98,12 @@ async function syncUserData(userData) {
             level: userData.level,
             money: userData.money,
             power: userData.power,
+            inventory: userData.inventory, // Add inventory to upsert
+            equipment: userData.equipment, // Add equipment to upsert
+            // Add other fields from gameState.player if they exist in the table
+            alias: userData.alias,
+            current_hp: userData.hp,
+            // organization: userData.organization, // Assuming organization is handled separately or needs mapping
             updated_at: new Date().toISOString() // Let trigger handle this ideally
         }, {
             onConflict: 'id' // Specify the conflict column
@@ -90,11 +111,11 @@ async function syncUserData(userData) {
         .select(); // Select the upserted data
 
     if (error) {
-        console.error('Error syncing user data:', error);
+        console.error(`[syncUserData] Error syncing user data for ${userId}:`, error); // Add user ID to error log
     } else {
-        console.log('User data synced successfully:', data);
+        console.log(`[syncUserData] User data synced successfully for ${userId}:`, data); // Add user ID to success log
     }
-    return { data, error };
+    return { data, error }; // Return the result
 }
 
 // Function to sync business protection data
@@ -150,7 +171,7 @@ async function fetchLeaderboard(type = 'money', limit = 10) {
 
     const { data, error } = await supabase
         .from('users')
-        .select('username, level, money, power') // Select relevant columns
+        .select('username, alias, level, money, power') // Select relevant columns including alias
         .order(orderByColumn, { ascending: false })
         .limit(limit);
 
@@ -171,41 +192,35 @@ async function saveGame(gameState) { // Ensure function is async
     saveGameLocally(gameState);
 
     // 2. Attempt to sync relevant parts to Supabase
-    //    Requires proper user identification (Auth)
-    let userId = null;
-    if (supabase?.auth) { // Check if supabase and auth are initialized
-        try {
-            // Correct way to get the user in Supabase v2
-            const { data: { user }, error: authError } = await supabase.auth.getUser();
-            if (authError) {
-                console.error("Error getting Supabase user:", authError);
-            } else if (user) {
-                userId = user.id; // Get the user ID
-                console.log("User ID obtained for saving:", userId); // Log success
-            } else {
-                console.log("No Supabase user currently logged in for saving.");
-            }
-        } catch (error) {
-             console.error("Exception while getting Supabase user:", error);
-        }
-    } else {
-        console.warn("Supabase auth not available for saving game.");
-    }
-
+    //    Use the global currentPlayerId set during initialization from Cardano wallet
+    const userId = window.currentPlayerId; // Access global ID (Cardano stake address)
 
     if (userId && gameState.player) {
-         console.log(`Attempting to sync user data for ID: ${userId}`); // Log sync attempt
+         console.log(`Attempting to sync user data for Cardano User ID: ${userId}`); // Log sync attempt
          // Prepare user data object matching the 'users' table structure
         const userDataToSync = {
             id: userId, // Make sure this ID matches the one in Supabase Auth
             username: gameState.player.username || null, // Or however username is stored
             level: gameState.player.level,
             money: gameState.player.cash, // Assuming cash maps to money
-            power: gameState.player.power // Assuming power maps to power
+            power: gameState.player.power, // Assuming power maps to power
+            inventory: gameState.player.inventory || [], // Add inventory
+            equipment: gameState.player.equipment || {},  // Add equipment
+            // --- ADDED: Include other fields needed by syncUserData ---
+            alias: gameState.player.alias,
+            hp: gameState.player.hp
+            // --- END ADDED ---
         };
-        await syncUserData(userDataToSync);
+        // --- MODIFIED: Check sync result ---
+        const syncResult = await syncUserData(userDataToSync);
+        if (syncResult.error) {
+             console.warn(`[saveGame] Sync failed for user ${userId}. Data saved locally, but not to cloud. Error:`, syncResult.error.message);
+        } else {
+             console.log(`[saveGame] Sync successful for user ${userId}.`);
+        }
+        // --- END MODIFIED ---
     } else if (!userId) {
-         console.warn("Cannot sync user data: User not logged in or ID unavailable.");
+         console.warn("[saveGame] Cannot sync user data: User not logged in or ID unavailable.");
     }
 
 
@@ -233,27 +248,58 @@ async function loadGame() {
     // 1. Try loading from local storage first
     let gameState = loadGameLocally();
 
-    // 2. If local data exists, potentially check Supabase for fresher data (optional, complex)
-    //    Or just use local as the primary source on load.
+    // 2. Attempt to load from Supabase using the global currentPlayerId (Cardano stake address)
+    const userId = window.currentPlayerId; // Access global ID set during initialization
+    let fetchedFromSupabase = false;
 
-    // 3. If no local data, try fetching from Supabase (requires user ID)
-    //    This part is tricky without auth. If using auth, fetch user data after login.
-    //    Example (pseudo-code):
-    //    if (!gameState && supabase && supabase.auth.user()) {
-    //        const userId = supabase.auth.user().id;
-    //        const { data, error } = await supabase.from('users').select('*').eq('id', userId).single();
-    //        if (data) {
-    //            // Map Supabase data to gameState structure
-    //            gameState = mapSupabaseToGameState(data);
-    //            saveGameLocally(gameState); // Save fetched data locally
-    //        } else {
-    //             // User exists in Auth but not in users table? Or first login?
-    //             // Create default state
-    //             gameState = getDefaultGameState();
-    //        }
-    //    }
+    if (userId) { // Only try fetching if we have a valid ID from the wallet
+        console.log(`User authenticated via Cardano: ${userId}. Checking Supabase for game state.`);
+        try { // <<< Corrected try block start
+            const { data: supabaseUserData, error: fetchError } = await supabase
+                .from('users')
+                .select('*') // Select all columns
+                .eq('id', userId)
+                .single();
 
-    // 4. If still no game state, create a default one
+            if (fetchError && fetchError.code !== 'PGRST116') { // Ignore 'No rows found' error
+                console.error(`Error fetching user data from Supabase:`, fetchError);
+            } else if (supabaseUserData) {
+                console.log("User data fetched from Supabase:", supabaseUserData);
+                const mappedState = mapSupabaseToGameState(supabaseUserData); // Use the helper
+                if (mappedState) {
+                    // --- FIX: Update global currentPlayerId ---
+                    // Ensure gameWorld.js's global variable is updated
+                    if (typeof window.currentPlayerId !== 'undefined') { // Access global scope
+                         window.currentPlayerId = userId;
+                         console.log(`Global currentPlayerId updated to: ${userId}`);
+                    } else {
+                         console.warn("Global variable 'currentPlayerId' not found in window scope during load.");
+                    }
+                    // --- End FIX ---
+
+                    // Optional: Compare timestamps if local data exists? For now, overwrite local if fetched.
+                    gameState = mappedState;
+                    saveGameLocally(gameState); // Update local storage with fetched data
+                    fetchedFromSupabase = true;
+                    console.log("Game state loaded from Supabase and saved locally.");
+                } else {
+                    console.error("Failed to map Supabase data to game state.");
+                    // Keep existing local gameState if mapping fails, or fall through to default
+                }
+            } else {
+                console.log("User found via Cardano ID, but no data in 'users' table yet.");
+                // User exists (has wallet ID) but not in users table (e.g., first login after signup)
+                // Keep local gameState if it exists, otherwise fall through to default
+            }
+        } catch (error) { // <<< Corrected catch block placement
+             // Catch potential errors during the fetch itself
+             console.error("Exception during Supabase fetch in loadGame:", error);
+        } // <<< Corrected try...catch block end
+    } else {
+        console.log("No Cardano User ID found, skipping Supabase load attempt.");
+    }
+
+    // 3. If still no game state (neither local nor fetched from Supabase), create a default one
     if (!gameState) {
         console.log("Creating default game state.");
         gameState = getDefaultGameState(); // Define this function based on your game's needs
@@ -302,17 +348,43 @@ function getDefaultGameState() {
     };
 }
 
-// --- Helper: Map Supabase data to Game State (Example) ---
-// function mapSupabaseToGameState(supabaseUserData) {
-//     const defaultState = getDefaultGameState();
-//     defaultState.player.username = supabaseUserData.username;
-//     defaultState.player.level = supabaseUserData.level;
-//     defaultState.player.cash = supabaseUserData.money;
-//     defaultState.player.power = supabaseUserData.power;
-//     // ... map other fields ...
-//     // Need to fetch related data like inventory, equipment, protection status separately
-//     return defaultState;
-// }
+// --- Helper: Map Supabase data to Game State ---
+function mapSupabaseToGameState(supabaseUserData) {
+    if (!supabaseUserData) return null;
+
+    try {
+        const defaultState = getDefaultGameState(); // Start with default structure for safety
+
+        // Map basic player fields, falling back to default if null/undefined in DB
+        const playerState = defaultState.player;
+        playerState.username = supabaseUserData.username || playerState.username;
+        playerState.alias = supabaseUserData.alias || playerState.alias;
+        playerState.level = supabaseUserData.level !== null ? supabaseUserData.level : playerState.level;
+        playerState.cash = supabaseUserData.money !== null ? supabaseUserData.money : playerState.cash; // Map money back to cash
+        playerState.power = supabaseUserData.power !== null ? supabaseUserData.power : playerState.power;
+        playerState.hp = supabaseUserData.current_hp !== null ? supabaseUserData.current_hp : playerState.hp;
+        // playerState.maxHp = calculateMaxHp(playerState.level, playerState.stats.vitality); // Recalculate if needed
+
+        // Map JSONB fields (inventory, equipment) - crucial part
+        // Ensure they are parsed correctly if stored as strings, though jsonb should handle objects
+        playerState.inventory = Array.isArray(supabaseUserData.inventory) ? supabaseUserData.inventory : [];
+        playerState.equipment = typeof supabaseUserData.equipment === 'object' && supabaseUserData.equipment !== null ? supabaseUserData.equipment : {};
+        playerState.organization = typeof supabaseUserData.organization === 'object' ? supabaseUserData.organization : null;
+
+        // Map other fields if they exist in Supabase data
+        // playerState.experience = supabaseUserData.experience !== null ? supabaseUserData.experience : playerState.experience;
+        // playerState.expNeeded = calculateExpNeeded(playerState.level); // Recalculate
+        // if (typeof supabaseUserData.stats === 'object' && supabaseUserData.stats !== null) {
+        //     playerState.stats = { ...playerState.stats, ...supabaseUserData.stats };
+        // }
+
+        console.log("Mapped game state from Supabase data:", defaultState);
+        return defaultState;
+    } catch (error) {
+        console.error("Error mapping Supabase data to game state:", error, "Data:", supabaseUserData);
+        return null; // Return null if mapping fails
+    }
+}
 
 
 // Export functions needed by other modules

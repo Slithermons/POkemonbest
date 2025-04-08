@@ -35,7 +35,7 @@
                 <button id="center-map-btn" class="btn" title="Center on Me">🎯</button> <!-- Added class -->
             </div>
         </div>
-        <div id="dashboard">
+        <div id="dashboard" class="minimized">
             <button class="minimize-btn" title="Minimize User Dashboard">_</button> <!-- Minimize Dashboard Button -->
             <div class="dashboard-header">
                  <h2>USER DASHBOARD</h2> <!-- Changed title -->
@@ -50,6 +50,7 @@
             </div>
             <div class="dashboard-actions">
                 <button id="save-user-info-btn" class="btn btn-blue">Save Info</button> <!-- Changed to btn-blue -->
+                <button id="logout-btn" class="btn btn-red">Logout</button> <!-- Added Logout Button -->
             </div>
             <div class="dashboard-section">
             <span class="label">Cash:</span>
@@ -75,6 +76,11 @@
             <label for="sound-toggle">Sound:</label>
             <input type="checkbox" id="sound-toggle" checked> <!-- Default to sound on -->
         </div>
+        <!-- Wallet Address Display -->
+        <div class="dashboard-section">
+            <span class="label">Wallet:</span>
+            <span class="value" id="user-wallet-address" title="Connected Cardano Wallet Address" style="font-size: 0.8em; word-break: break-all;">Not Connected</span>
+        </div>
         <!-- Inventory Section Removed from Dashboard -->
         <!-- Equipment/Inventory/Stats Buttons -->
         <div class="dashboard-actions button-row"> <!-- Added button-row class -->
@@ -83,7 +89,7 @@
     </div>
 
     <!-- Protection Money Book -->
-    <div id="protection-book" style="display: none;">
+    <div id="protection-book" class="minimized" style="display: none;">
         <button class="minimize-btn" title="Minimize Book">_</button> <!-- Minimize Button -->
         <h3>Protection Book</h3>
         <ul id="controlled-businesses-list">
@@ -185,6 +191,11 @@
                     <!-- Offhand slot removed -->
                 </div>
             </div>
+            <!-- Added Power Display Section -->
+            <div class="equipment-summary">
+                <span class="summary-label">Power:</span>
+                <span class="summary-value" id="equipment-power-value">0</span>
+            </div>
         </div>
     </div>
 
@@ -193,6 +204,14 @@
         <div class="modal-content inventory-modal-content"> <!-- Added class for specific styling -->
             <span class="close-btn" id="close-inventory-btn">&times;</span>
             <h2 class="inventory-title">Inventory</h2> <!-- Added class for styling -->
+            <!-- Inventory Tabs -->
+            <div class="inventory-tabs">
+                <button class="tab-btn active-tab" data-category="all">All</button>
+                <button class="tab-btn" data-category="land">Land Plots</button>
+                <button class="tab-btn" data-category="pets">Pets</button>
+                <button class="tab-btn" data-category="painting">Painting</button>
+                <!-- Add more tabs as needed -->
+            </div>
             <div class="inventory-grid" id="inventory-grid">
                 <!-- Inventory slots will be added here by JS -->
                 <!-- Example slot structure (will be generated dynamically): -->
@@ -285,7 +304,7 @@
                 <p>Good luck, boss!</p>
                 <p>Join us on X: <a href="https://x.com/Web3MOBFI" target="_blank" rel="noopener noreferrer">https://x.com/Web3MOBFI</a></p>
             </div>
-        </div>
+        </div>https://img.icons8.com/external-flatart-icons-flat-flatarticons/64/000000/external-money-bag-valentines-day-flatart-icons-flat-flatarticons.png
     </div>
 
     <!-- Battle Modal -->
