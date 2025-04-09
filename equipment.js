@@ -8,7 +8,13 @@ const EquipmentType = {
     BOOTS: 'Boots',
     ACCESSORY: 'Accessory',
     CHARM: 'Charm',
-    WEAPON: 'Weapon'
+    WEAPON: 'Weapon',
+    // Housing Slots
+    BASE: 'Base',
+    WALL_DECORATION: 'WallDecoration',
+    WEAPON_STASH: 'WeaponStash',
+    LUXURY_FURNITURE: 'LuxuryFurniture',
+    SECURITY_SYSTEM: 'SecuritySystem'
 };
 
 // --- Rarity System ---
@@ -22,9 +28,12 @@ const Rarity = {
     GOD_TIER:   { name: 'God-Tier',   color: '#000000', multiplier: 3.0 } // Note: Black might be hard to see
 };
 
-// Base Equipment Class
+// Base Equipment Class (Adding optional image and category properties)
 class Equipment {
-    constructor(id, name, description, equipmentType, stats = {}, requirements = {}, rarity = Rarity.COMMON) { // Added rarity parameter, default Common
+    constructor(id, name, description, equipmentType, stats = {}, requirements = {}, rarity = Rarity.COMMON, image = null, category = 'equipment') { // Added category parameter
+        // Automatically generate image path for standard equipment if not provided
+        const defaultImagePath = category === 'equipment' ? `img/items/${id}.jpg` : null; // Changed extension to .jpg
+
         this.id = id; // Unique identifier
         this.name = name;
         this.description = description;
@@ -35,6 +44,8 @@ class Equipment {
         this.stats = stats;
         this.requirements = requirements; // An object for equip requirements, e.g., { level: 10, strength: 5 }
         this.rarity = rarity; // Store the rarity object
+        this.image = image !== null ? image : defaultImagePath; // Use provided image, or default if applicable
+        this.category = category; // Added category for inventory filtering (e.g., 'equipment', 'housing', 'plots')
         this.stackable = false; // Equipment is typically not stackable
         this.maxStack = 1;
     }
@@ -110,6 +121,54 @@ equipmentDatabase.set('WEAP004', new Equipment('WEAP004', 'Sniper Rifle', 'High 
 equipmentDatabase.set('HEAD004', new Equipment('HEAD004', 'Fedora', 'A classic symbol of status and style.', EquipmentType.HEAD, { influence: 5, defence: 1 }, { level: 3 }, Rarity.UNCOMMON));
 equipmentDatabase.set('BODY004', new Equipment('BODY004', 'Tailored Suit', 'Impeccable style, offers surprising protection.', EquipmentType.BODY, { defence: 6, influence: 10 }, { level: 7 }, Rarity.RARE));
 equipmentDatabase.set('WEAP005', new Equipment('WEAP005', 'Tommy Gun', 'Chicago Typewriter. High rate of fire.', EquipmentType.WEAPON, { attack: 18, hitRate: -5 }, { level: 10, strength: 7 }, Rarity.RARE)); // High attack, lower accuracy
+
+// --- Housing Equipment Examples (Itemized with Rarities & Category) ---
+
+// Base Designs (EquipmentType.BASE)
+equipmentDatabase.set('BASE001', new Equipment('BASE001', 'Basic Warehouse', 'A simple, functional warehouse base. Low profile.', EquipmentType.BASE, { defence: 5 }, {}, Rarity.COMMON, 'img/housing/base_warehouse.png', 'housing-plots'));
+equipmentDatabase.set('BASE002', new Equipment('BASE002', 'Downtown Loft', 'A stylish loft in the city center. Boosts influence.', EquipmentType.BASE, { influence: 10 }, { level: 5 }, Rarity.UNCOMMON, 'img/housing/base_loft.png', 'housing-plots'));
+equipmentDatabase.set('BASE003', new Equipment('BASE003', 'Secure Bunker', 'A heavily fortified underground bunker. High defense.', EquipmentType.BASE, { defence: 20 }, { level: 10 }, Rarity.RARE, 'img/housing/base_bunker.png', 'housing-plots'));
+equipmentDatabase.set('BASE004', new Equipment('BASE004', 'Penthouse Suite', 'Luxury living with a view. Maximum influence.', EquipmentType.BASE, { influence: 25, defence: 5 }, { level: 15 }, Rarity.EPIC, 'img/housing/base_penthouse.png', 'housing-plots')); // Added Epic option
+
+// Wall Decorations (EquipmentType.WALL_DECORATION)
+equipmentDatabase.set('WALL001', new Equipment('WALL001', 'Graffiti Tag', 'Adds some street cred, minor influence boost.', EquipmentType.WALL_DECORATION, { influence: 2 }, {}, Rarity.COMMON, 'img/housing/wall_graffiti.png', 'housing-plots'));
+equipmentDatabase.set('WALL002', new Equipment('WALL002', 'Framed Masterpiece', 'A touch of class and sophistication.', EquipmentType.WALL_DECORATION, { influence: 6 }, { level: 4 }, Rarity.UNCOMMON, 'img/housing/wall_painting.png', 'housing-plots'));
+equipmentDatabase.set('WALL003', new Equipment('WALL003', 'Mounted Weapon Display', 'Showcases your favorite piece. Intimidating.', EquipmentType.WALL_DECORATION, { attack: 1, influence: 2 }, { level: 6 }, Rarity.RARE, 'img/housing/wall_weapon_rack.png', 'housing-plots'));
+equipmentDatabase.set('WALL004', new Equipment('WALL004', 'Neon Sign', 'A flashy sign for your operation.', EquipmentType.WALL_DECORATION, { influence: 4 }, { level: 2 }, Rarity.UNCOMMON, 'img/housing/wall_neon.png', 'housing-plots')); // Added another Uncommon
+
+// Weapon Stash (EquipmentType.WEAPON_STASH)
+equipmentDatabase.set('WSTASH001', new Equipment('WSTASH001', 'Loose Floorboard', 'Simple hidden storage. Minimal security.', EquipmentType.WEAPON_STASH, { evasionRate: 1 }, {}, Rarity.COMMON, 'img/housing/stash_floorboard.png', 'housing-plots'));
+equipmentDatabase.set('WSTASH002', new Equipment('WSTASH002', 'Reinforced Gun Locker', 'Secure storage for multiple weapons.', EquipmentType.WEAPON_STASH, { defence: 5 }, { level: 8 }, Rarity.RARE, 'img/housing/stash_locker.png', 'housing-plots'));
+equipmentDatabase.set('WSTASH003', new Equipment('WSTASH003', 'Walk-in Vault', 'Maximum security for your arsenal and valuables.', EquipmentType.WEAPON_STASH, { defence: 15 }, { level: 14 }, Rarity.EPIC, 'img/housing/stash_vault.png', 'housing-plots')); // Added Epic option
+equipmentDatabase.set('WSTASH004', new Equipment('WSTASH004', 'False Wall Compartment', 'Well-hidden storage, good for evasion.', EquipmentType.WEAPON_STASH, { evasionRate: 3, defence: 2 }, { level: 5 }, Rarity.UNCOMMON, 'img/housing/stash_false_wall.png', 'housing-plots')); // Added another Uncommon
+
+// Luxury Furniture (EquipmentType.LUXURY_FURNITURE)
+equipmentDatabase.set('FURN001', new Equipment('FURN001', 'Worn Leather Armchair', 'Seen better days, but still comfy.', EquipmentType.LUXURY_FURNITURE, { influence: 2 }, {}, Rarity.COMMON, 'img/housing/furn_armchair.png', 'housing-plots'));
+equipmentDatabase.set('FURN002', new Equipment('FURN002', 'Mahogany Desk & Chair', 'A symbol of power and business.', EquipmentType.LUXURY_FURNITURE, { influence: 8 }, { level: 6 }, Rarity.UNCOMMON, 'img/housing/furn_desk.png', 'housing-plots'));
+equipmentDatabase.set('FURN003', new Equipment('FURN003', 'Golden Throne', 'Ultimate status symbol. Commands respect.', EquipmentType.LUXURY_FURNITURE, { influence: 15 }, { level: 12 }, Rarity.EPIC, 'img/housing/furn_throne.png', 'housing-plots'));
+equipmentDatabase.set('FURN004', new Equipment('FURN004', 'Plush Velvet Sofa', 'Expensive and comfortable seating.', EquipmentType.LUXURY_FURNITURE, { influence: 5 }, { level: 3 }, Rarity.UNCOMMON, 'img/housing/furn_sofa_velvet.png', 'housing-plots')); // Added another Uncommon
+
+// Security System (EquipmentType.SECURITY_SYSTEM)
+equipmentDatabase.set('SEC001', new Equipment('SEC001', 'Guard Dog Sign', 'Might deter casual intruders.', EquipmentType.SECURITY_SYSTEM, { defence: 1 }, {}, Rarity.COMMON, 'img/housing/sec_dog_sign.png', 'housing-plots'));
+equipmentDatabase.set('SEC002', new Equipment('SEC002', 'CCTV Network', 'Monitors the premises, helps anticipate trouble.', EquipmentType.SECURITY_SYSTEM, { evasionRate: 2, defence: 2 }, { level: 5 }, Rarity.UNCOMMON, 'img/housing/sec_cameras.png', 'housing-plots'));
+equipmentDatabase.set('SEC003', new Equipment('SEC003', 'Laser Grid Defense', 'Advanced perimeter defense. Hard to bypass.', EquipmentType.SECURITY_SYSTEM, { defence: 8, hitRate: 1 }, { level: 10 }, Rarity.RARE, 'img/housing/sec_lasers.png', 'housing-plots'));
+equipmentDatabase.set('SEC004', new Equipment('SEC004', 'Pressure Plates', 'Detects intruders stepping in specific areas.', EquipmentType.SECURITY_SYSTEM, { defence: 4, criticalRate: 1 }, { level: 7 }, Rarity.RARE, 'img/housing/sec_pressure_plates.png', 'housing-plots')); // Added another Rare
+
+// --- Plot Items (Placeholder Example) ---
+// Assuming plots are also treated as 'Equipment' for inventory purposes
+// Using a placeholder EquipmentType or null if plots don't have a specific slot
+equipmentDatabase.set('PLOT001', new Equipment('PLOT001', 'Small Urban Plot', 'A small piece of land in the city.', null, {}, {}, Rarity.COMMON, 'img/plots/plot_small_urban.png', 'housing-plots'));
+equipmentDatabase.set('PLOT002', new Equipment('PLOT002', 'Industrial Zone Plot', 'Land zoned for industrial use.', null, {}, { level: 5 }, Rarity.UNCOMMON, 'img/plots/plot_industrial.png', 'housing-plots'));
+
+// --- Pet Items ---
+equipmentDatabase.set('PET001', new Equipment('PET001', 'Guard Dog', 'A loyal canine companion. Offers some protection.', null, { defence: 3 }, { level: 5 }, Rarity.UNCOMMON, 'img/pets/guard_dog.png', 'pets'));
+equipmentDatabase.set('PET002', new Equipment('PET002', 'Attack Cat', 'Surprisingly vicious feline. Good for intimidation.', null, { influence: 2, criticalRate: 1 }, { level: 3 }, Rarity.COMMON, 'img/pets/attack_cat.png', 'pets'));
+equipmentDatabase.set('PET003', new Equipment('PET003', 'Carrier Pigeon', 'Useful for sending messages discreetly.', null, { agility: 1 }, {}, Rarity.COMMON, 'img/pets/pigeon.png', 'pets')); // Added a third pet
+
+// --- Painting Items ---
+equipmentDatabase.set('PAINT001', new Equipment('PAINT001', 'Abstract Canvas', 'A splash of color. Modern art.', null, { influence: 1 }, {}, Rarity.COMMON, 'img/paintings/abstract.png', 'painting'));
+equipmentDatabase.set('PAINT002', new Equipment('PAINT002', 'Classical Portrait', 'A portrait of some old dignitary. Looks expensive.', null, { influence: 4 }, { level: 8 }, Rarity.RARE, 'img/paintings/portrait.png', 'painting'));
+equipmentDatabase.set('PAINT003', new Equipment('PAINT003', 'Landscape Painting', 'A serene landscape scene.', null, { influence: 2 }, {}, Rarity.UNCOMMON, 'img/paintings/landscape.png', 'painting')); // Added a third painting
 
 
 // Function to get an equipment item by its ID

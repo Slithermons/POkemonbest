@@ -1,4 +1,4 @@
-// uiManager.js with Shop Modal Logic (Corrected Element References)
+// uiManager.js with Shop Modal Logic & Housing Modal Logic
 
 // --- UI Element References (Keep non-modal elements here) ---
 const cashAmountElement = document.getElementById('cash-amount');
@@ -162,7 +162,15 @@ let currentInventoryCategory = 'all'; // Default to showing all items
 
 // Function to update the inventory UI (targets grid inside the modal)
 function updateInventoryUI(category = currentInventoryCategory) {
-    console.log(`updateInventoryUI called for category: ${category}. Current playerInventory:`, JSON.stringify(playerInventory)); // playerInventory from gameWorld.js
+    // --- Added Debug Logging ---
+    console.log(`--- updateInventoryUI Start ---`);
+    console.log(`Category requested: ${category}`);
+    console.log(`Current playerInventory state:`, JSON.stringify(playerInventory));
+    console.log(`itemsDatabase size: ${typeof itemsDatabase !== 'undefined' ? itemsDatabase.size : 'undefined'}`);
+    console.log(`equipmentDatabase size: ${typeof equipmentDatabase !== 'undefined' ? equipmentDatabase.size : 'undefined'}`);
+    console.log(`--- End Debug Logging ---`);
+    // --- End Added Debug Logging ---
+
     currentInventoryCategory = category; // Update the current category state
 
     const gridElement = document.getElementById('inventory-grid');
@@ -199,8 +207,20 @@ function updateInventoryUI(category = currentInventoryCategory) {
 
         // --- Filtering Logic ---
         // Check if the item matches the selected category (or if 'all' is selected)
-        // Assumes itemDefinition has a 'category' property (e.g., 'land', 'pets', 'painting', 'consumable', 'equipment')
-        const itemCategory = itemDefinition?.category?.toLowerCase() || 'other'; // Default category if undefined
+        // Categories are now 'all', 'housing', 'plots', 'equipment', 'consumable', etc.
+        // Ensure itemDefinition exists before accessing its properties
+        let itemCategory = 'other'; // Default category if definition is missing or has no category
+        if (itemDefinition && itemDefinition.category) {
+            itemCategory = itemDefinition.category.toLowerCase();
+        } else if (itemDefinition && itemDefinition.itemType === 'Equipment') {
+             // Fallback for older equipment without explicit category
+             itemCategory = 'equipment';
+        } else if (itemDefinition && itemDefinition.itemType === 'Consumable') {
+             // Fallback for consumables
+             itemCategory = 'consumable';
+        }
+
+        // Apply the filter
         if (category !== 'all' && itemCategory !== category) {
             continue; // Skip this item if it doesn't match the selected category
         }
@@ -239,15 +259,23 @@ function updateInventoryUI(category = currentInventoryCategory) {
                 slotDiv.appendChild(countSpan);
             }
 
-             // Apply rarity styling (e.g., border color) - Optional enhancement
-            if (itemDefinition.itemType === 'Equipment' && itemDefinition.rarity && typeof Rarity !== 'undefined') {
-                const rarityInfo = typeof itemDefinition.rarity === 'object' ? itemDefinition.rarity : Rarity[itemDefinition.rarity.toUpperCase().replace('-', '_')];
-                if (rarityInfo && rarityInfo.color) {
-                    slotDiv.style.borderColor = rarityInfo.color;
-                    slotDiv.style.boxShadow = `0 0 5px ${rarityInfo.color}`; // Add a glow effect
-                    slotDiv.title += ` (${rarityInfo.name})`; // Add rarity name to tooltip
-                }
-            }
+             // Apply rarity styling (border color and glow effect class)
+             slotDiv.classList.remove('rarity-glow-common', 'rarity-glow-uncommon', 'rarity-glow-rare', 'rarity-glow-epic', 'rarity-glow-legendary', 'rarity-glow-mythic', 'rarity-glow-god-tier'); // Clear existing glows
+             if (itemDefinition.rarity && typeof Rarity !== 'undefined') {
+                 // Handle rarity being an object (from equipment.js) or string (potentially from items.js)
+                 const rarityKey = (typeof itemDefinition.rarity === 'object' ? itemDefinition.rarity.name : itemDefinition.rarity).toUpperCase().replace('-', '_');
+                 const rarityInfo = Rarity[rarityKey];
+                 if (rarityInfo) {
+                     slotDiv.style.borderColor = rarityInfo.color || '#5a4a3a'; // Fallback border
+                     const glowClass = `rarity-glow-${rarityInfo.name.toLowerCase().replace(' ', '-')}`;
+                     slotDiv.classList.add(glowClass);
+                     slotDiv.title += ` (${rarityInfo.name})`; // Add rarity name to tooltip
+                 } else {
+                     slotDiv.style.borderColor = '#5a4a3a'; // Default border if rarity unknown
+                 }
+             } else {
+                 slotDiv.style.borderColor = '#5a4a3a'; // Default border if no rarity defined
+             }
 
             gridElement.appendChild(slotDiv);
             filledSlotsCount++;
@@ -411,11 +439,17 @@ function updateEquipmentUI() {
                 itemDiv.textContent = item.name; // Display item name
                 itemDiv.title = `${item.name}\n${item.description || ''}\nClick to unequip`; // Tooltip
                 // Apply rarity styling
-                itemDiv.style.color = item.rarity.color || '#e0e0e0';
-                itemDiv.style.borderColor = item.rarity.color || '#555';
+                // Apply rarity styling (border color and glow effect class)
+                itemDiv.classList.remove('rarity-glow-common', 'rarity-glow-uncommon', 'rarity-glow-rare', 'rarity-glow-epic', 'rarity-glow-legendary', 'rarity-glow-mythic', 'rarity-glow-god-tier'); // Clear existing glows
+                itemDiv.style.color = item.rarity.color || '#e0e0e0'; // Keep text color
+                itemDiv.style.borderColor = item.rarity.color || '#555'; // Keep border color
                 itemDiv.style.borderStyle = 'solid';
+                const glowClass = `rarity-glow-${item.rarity.name.toLowerCase().replace(' ', '-')}`;
+                itemDiv.classList.add(glowClass); // Add glow class
+
+                // Special text shadow for God-Tier remains
                 if (item.rarity.name === Rarity.GOD_TIER.name) {
-                    itemDiv.style.color = '#FFFFFF';
+                    itemDiv.style.color = '#FFFFFF'; // Ensure text is white for god-tier glow
                     itemDiv.style.textShadow = '0 0 3px #000, 0 0 3px #000, 0 0 3px #000';
                 } else {
                     itemDiv.style.textShadow = 'none';
@@ -424,6 +458,7 @@ function updateEquipmentUI() {
                 // Item ID exists but definition not found (error state)
                 itemDiv.textContent = `ERR! (${equippedItemId})`;
                 itemDiv.title = 'Error: Item definition not found';
+                itemDiv.classList.remove('rarity-glow-common', 'rarity-glow-uncommon', 'rarity-glow-rare', 'rarity-glow-epic', 'rarity-glow-legendary', 'rarity-glow-mythic', 'rarity-glow-god-tier'); // Clear existing glows
                 itemDiv.style.color = 'red';
                 itemDiv.style.borderColor = '#444';
                 itemDiv.style.borderStyle = 'dashed';
@@ -431,6 +466,7 @@ function updateEquipmentUI() {
             }
         } else {
             // Slot is empty
+            itemDiv.classList.remove('rarity-glow-common', 'rarity-glow-uncommon', 'rarity-glow-rare', 'rarity-glow-epic', 'rarity-glow-legendary', 'rarity-glow-mythic', 'rarity-glow-god-tier'); // Clear existing glows
             itemDiv.textContent = ''; // Clear text
             itemDiv.title = `${slotType} Slot (Empty)`;
             itemDiv.style.color = '#666'; // Reset styling
@@ -594,6 +630,88 @@ function displayBusinesses(businesses) {
      // This listener is attached below in the Event Listeners section
 }
 
+// --- Helper function for generating detailed item tooltips ---
+function generateItemTooltip(item) {
+    if (!item) return 'Unknown Item';
+
+    let tooltip = `${item.name}`;
+
+    // Add Rarity
+    let rarityName = '';
+    if (item.rarity && typeof Rarity !== 'undefined') {
+        // Handle both object (equipment) and string (items) rarity formats
+        const rarityKey = (typeof item.rarity === 'object' ? item.rarity.name : item.rarity).toUpperCase().replace('-', '_');
+        const rarityInfo = Rarity[rarityKey];
+        if (rarityInfo) {
+            rarityName = rarityInfo.name;
+            tooltip += ` (${rarityName})`;
+        }
+    } else if (typeof item.rarity === 'string') {
+         // Fallback for string rarity if Rarity object isn't loaded or key doesn't match
+         rarityName = item.rarity.charAt(0).toUpperCase() + item.rarity.slice(1);
+         tooltip += ` (${rarityName})`;
+    } else {
+        tooltip += ` (Common)`; // Assume common if no rarity defined
+    }
+
+
+    // Add Description
+    if (item.description) {
+        tooltip += `\n${item.description}`;
+    }
+
+    // Add Type/Category
+    let itemType = '';
+    if (item.equipmentType) { // From equipment.js (e.g., EquipmentType.HEAD)
+        itemType = item.equipmentType;
+        tooltip += `\nType: ${itemType}`;
+    } else if (item.category) { // From items.js (newer structure, e.g., 'housing', 'consumable')
+        itemType = item.category.charAt(0).toUpperCase() + item.category.slice(1);
+        tooltip += `\nCategory: ${itemType}`;
+    } else if (item.itemType) { // Fallback (older structure, e.g., 'Equipment', 'Consumable')
+         itemType = item.itemType;
+         tooltip += `\nType: ${itemType}`;
+    }
+
+
+    // Add Equipment Stats (check if properties exist and are non-zero/relevant)
+    const stats = [];
+    if (item.damage) stats.push(`Damage: ${item.damage}`);
+    if (item.defense) stats.push(`Defense: ${item.defense}`);
+    if (item.strength) stats.push(`Strength: ${item.strength}`);
+    if (item.agility) stats.push(`Agility: ${item.agility}`);
+    if (item.vitality) stats.push(`Vitality: ${item.vitality}`);
+    if (item.hitRate) stats.push(`Hit Rate: ${item.hitRate}`);
+    if (item.evasionRate) stats.push(`Evasion: ${item.evasionRate}%`);
+    if (item.criticalRate) stats.push(`Crit Rate: ${item.criticalRate}%`);
+    if (item.influence) stats.push(`Influence: ${item.influence}`); // Housing/Other stat
+    if (item.power) stats.push(`Power: ${item.power}`); // Housing/Other stat
+
+
+    if (stats.length > 0) {
+        tooltip += `\nStats: ${stats.join(', ')}`;
+    }
+
+    // Add Consumable Effects
+    if (item.effect) {
+        let effects = [];
+        if (item.effect.heal) effects.push(`Heals ${item.effect.heal} HP`);
+        // Add other potential effects here (e.g., buffs, status changes)
+        // if (item.effect.buff) effects.push(`Buff: ${item.effect.buff.stat} +${item.effect.buff.value} for ${item.effect.buff.duration}s`);
+        if (effects.length > 0) {
+            tooltip += `\nEffect: ${effects.join(', ')}`;
+        }
+    }
+
+    // Add Price (already visible, but maybe useful in tooltip too?)
+    // if (item.price) {
+    //     tooltip += `\nPrice: $${item.price}`;
+    // }
+
+    return tooltip;
+}
+
+
 // --- Shop Modal Functions ---
 
 function openShopModal(businessId) {
@@ -678,29 +796,32 @@ function populateShopUI() {
 
             // Determine display name and rarity color
             let displayName = item.name;
-            let rarityColor = '';
             let rarityName = '';
-            if (item.rarity && typeof Rarity !== 'undefined') { // Rarity from equipment.js
-                // Handle rarity being an object (from equipment.js) or string (potentially from items.js if adapted)
-                const rarityInfo = typeof item.rarity === 'object' && item.rarity !== null ? item.rarity : Rarity[item.rarity?.toUpperCase()?.replace('-', '_')];
+            listItem.classList.remove('rarity-glow-common', 'rarity-glow-uncommon', 'rarity-glow-rare', 'rarity-glow-epic', 'rarity-glow-legendary', 'rarity-glow-mythic', 'rarity-glow-god-tier'); // Clear existing glows
+            listItem.style.color = ''; // Reset color
+            listItem.style.textShadow = 'none'; // Reset shadow
+
+            if (item.rarity && typeof Rarity !== 'undefined') {
+                const rarityKey = (typeof item.rarity === 'object' ? item.rarity.name : item.rarity).toUpperCase().replace('-', '_');
+                const rarityInfo = Rarity[rarityKey];
                 if (rarityInfo) {
-                    rarityColor = rarityInfo.color || '';
                     rarityName = ` (${rarityInfo.name})`;
+                    const glowClass = `rarity-glow-${rarityInfo.name.toLowerCase().replace(' ', '-')}`;
+                    listItem.classList.add(glowClass); // Add glow class to the list item itself
                     if (rarityInfo.name === Rarity.GOD_TIER.name) {
-                         listItem.style.color = '#FFFFFF';
-                         listItem.style.textShadow = '0 0 3px #000, 0 0 3px #000, 0 0 3px #000';
+                        listItem.style.color = '#FFFFFF'; // Keep text white for god-tier
+                        listItem.style.textShadow = '0 0 3px #000, 0 0 3px #000, 0 0 3px #000';
                     } else {
-                        listItem.style.color = rarityColor;
-                        listItem.style.textShadow = 'none';
+                         listItem.style.color = rarityInfo.color || ''; // Set text color based on rarity
                     }
                 }
-            } else {
-                 listItem.style.color = ''; // Reset color if no rarity
-                 listItem.style.textShadow = 'none';
             }
 
+            // Generate detailed tooltip using the helper function
+            const tooltipText = generateItemTooltip(item);
+
             listItem.innerHTML = `
-                <span class="shop-item-name" title="${item.description || ''}${rarityName}">${displayName}</span>
+                <span class="shop-item-name" title="${tooltipText}">${displayName}</span>
                 <span class="shop-item-price">$${item.price || 'N/A'}</span>
                 <button class="shop-buy-button btn btn-green" data-item-id="${item.id}">Buy</button>
             `;
@@ -750,28 +871,32 @@ function populateShopUI() {
 
             // Determine display name and rarity color
             let displayName = item.name;
-            let rarityColor = '';
             let rarityName = '';
-             if (item.rarity && typeof Rarity !== 'undefined') {
-                const rarityInfo = Rarity[item.rarity.toUpperCase().replace('-', '_')]; // Lookup using the string key
-                 if (rarityInfo) {
-                    rarityColor = rarityInfo.color || '';
+            listItem.classList.remove('rarity-glow-common', 'rarity-glow-uncommon', 'rarity-glow-rare', 'rarity-glow-epic', 'rarity-glow-legendary', 'rarity-glow-mythic', 'rarity-glow-god-tier'); // Clear existing glows
+            listItem.style.color = ''; // Reset color
+            listItem.style.textShadow = 'none'; // Reset shadow
+
+            if (item.rarity && typeof Rarity !== 'undefined') {
+                const rarityKey = (typeof item.rarity === 'object' ? item.rarity.name : item.rarity).toUpperCase().replace('-', '_');
+                const rarityInfo = Rarity[rarityKey];
+                if (rarityInfo) {
                     rarityName = ` (${rarityInfo.name})`;
-                     if (rarityInfo.name === Rarity.GOD_TIER.name) {
-                         listItem.style.color = '#FFFFFF';
-                         listItem.style.textShadow = '0 0 3px #000, 0 0 3px #000, 0 0 3px #000';
+                    const glowClass = `rarity-glow-${rarityInfo.name.toLowerCase().replace(' ', '-')}`;
+                    listItem.classList.add(glowClass); // Add glow class to the list item itself
+                    if (rarityInfo.name === Rarity.GOD_TIER.name) {
+                        listItem.style.color = '#FFFFFF'; // Keep text white for god-tier
+                        listItem.style.textShadow = '0 0 3px #000, 0 0 3px #000, 0 0 3px #000';
                     } else {
-                        listItem.style.color = rarityColor;
-                        listItem.style.textShadow = 'none';
+                        listItem.style.color = rarityInfo.color || ''; // Set text color based on rarity
                     }
                 }
-            } else {
-                 listItem.style.color = ''; // Reset color if no rarity
-                 listItem.style.textShadow = 'none';
             }
 
+            // Generate detailed tooltip using the helper function
+            const tooltipText = generateItemTooltip(item); // item here is the grouped item with definition properties
+
             listItem.innerHTML = `
-                <span class="shop-item-name" title="${item.description || ''}${rarityName}">${displayName} (x${item.quantity})</span>
+                <span class="shop-item-name" title="${tooltipText}">${displayName} (x${item.quantity})</span>
                 <span class="shop-item-value">$${sellPrice}</span>
                 <button class="shop-sell-button btn btn-orange" data-item-id="${item.id}">Sell</button>
             `;
@@ -1123,6 +1248,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const powerContent = document.getElementById('leaderboard-power-content');
     const moneyList = document.getElementById('leaderboard-money-list');
     const powerList = document.getElementById('leaderboard-power-list');
+    // const linkWalletBtn = document.getElementById('link-wallet-btn'); // REMOVED Link Wallet Button Ref
+
+    // --- Housing Modal Elements ---
+    const housingModal = document.getElementById('housing-modal');
+    const closeHousingBtn = document.getElementById('close-housing-btn');
+    const actionHousingBtn = document.getElementById('action-housing-btn');
+    const housingPreviewArea = document.getElementById('housing-preview');
+    const housingSlotsContainer = document.querySelector('#housing-modal .housing-slots');
+    const housingItemSelector = document.getElementById('housing-item-selector');
+    const housingSelectorGrid = document.getElementById('housing-selector-grid');
+    const closeHousingSelectorBtn = document.getElementById('close-housing-selector-btn');
+    let currentHousingSlotType = null; // To track which slot's selector is open
 
 
     // --- Stats Info Modal Listeners (Get elements inside listener) ---
@@ -1355,15 +1492,138 @@ document.addEventListener('DOMContentLoaded', () => {
         actionInventoryBtn.addEventListener('click', () => {
             const inventoryModal = document.getElementById('inventory-modal'); // Get modal fresh
             if (inventoryModal) {
-                updateInventoryUI();
-                inventoryModal.classList.remove('modal-hidden');
-                console.log("Inventory modal opened via bottom bar button.");
+                currentInventoryCategory = 'all'; // Explicitly set state variable first
+
+                // --- Set 'all' tab button as visually active *before* updating UI ---
+                const inventoryTabsContainer = inventoryModal.querySelector('.inventory-tabs');
+                if (inventoryTabsContainer) {
+                    // Remove active class from all tabs
+                    inventoryTabsContainer.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active-tab'));
+                    // Add active class to the 'all' tab
+                    const allTabButton = inventoryTabsContainer.querySelector('.tab-btn[data-category="all"]');
+                    if (allTabButton) {
+                        allTabButton.classList.add('active-tab');
+                        console.log("Set 'all' tab button to active.");
+                    } else {
+                        console.warn("Could not find the 'all' inventory tab button to set as active.");
+                    }
+                } else {
+                    console.warn("Could not find inventory tabs container to set active tab.");
+                }
+                // --- End set 'all' tab ---
+
+                console.log("Inventory button clicked. Current playerInventory before update:", JSON.stringify(playerInventory)); // Log inventory before update
+                updateInventoryUI(); // Update grid content using the 'currentInventoryCategory' state ('all')
+                inventoryModal.classList.remove('modal-hidden'); // Make modal visible last
+                console.log("Inventory modal opened via bottom bar button, ensuring 'all' tab is active and content updated.");
+
             } else { console.error("Inventory modal not found on open click (bottom bar)."); }
         });
     } else {
         console.error("Could not find Inventory action button.");
     }
 
+    // --- Housing Modal Listeners ---
+    if (actionHousingBtn && housingModal) {
+        actionHousingBtn.addEventListener('click', () => {
+            updateHousingPreview(); // Update preview when opening
+            housingModal.classList.remove('modal-hidden');
+            console.log("Housing modal opened.");
+        });
+    } else {
+        console.error("Housing action button or modal element not found.");
+    }
+
+    if (closeHousingBtn && housingModal) {
+        closeHousingBtn.addEventListener('click', () => {
+            housingModal.classList.add('modal-hidden');
+            housingItemSelector.classList.add('modal-hidden'); // Also hide selector if open
+            console.log("Housing modal closed.");
+        });
+    }
+
+    // Close modal on Escape key press
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            if (housingModal && !housingModal.classList.contains('modal-hidden')) {
+                housingModal.classList.add('modal-hidden');
+                housingItemSelector.classList.add('modal-hidden'); // Also hide selector
+                console.log("Housing modal closed via Escape key.");
+            }
+            // Add similar checks for other modals if needed
+            // if (equipmentModal && !equipmentModal.classList.contains('modal-hidden')) { ... }
+        }
+    });
+
+    // Listener for housing slot buttons
+    if (housingSlotsContainer) {
+        housingSlotsContainer.addEventListener('click', (event) => {
+            if (event.target.classList.contains('housing-slot-btn')) {
+                const slotType = event.target.dataset.slotType;
+                if (slotType) {
+                    console.log(`Housing slot button clicked: ${slotType}`);
+                    currentHousingSlotType = slotType; // Store the slot type
+                    populateHousingSelector(slotType);
+                    housingItemSelector.classList.remove('modal-hidden');
+                }
+            }
+        });
+    } else {
+        console.error("Housing slots container not found.");
+    }
+
+    // Listener for closing the item selector
+    if (closeHousingSelectorBtn && housingItemSelector) {
+        closeHousingSelectorBtn.addEventListener('click', () => {
+            housingItemSelector.classList.add('modal-hidden');
+            currentHousingSlotType = null;
+        });
+    }
+
+    // Listener for selecting an item from the selector grid
+    if (housingSelectorGrid && housingItemSelector) {
+        housingSelectorGrid.addEventListener('click', (event) => {
+            const selectedItemDiv = event.target.closest('.selector-item');
+            if (selectedItemDiv && selectedItemDiv.dataset.itemId) {
+                const itemId = selectedItemDiv.dataset.itemId;
+                console.log(`Selected housing item ${itemId} for slot ${currentHousingSlotType}`);
+                if (currentHousingSlotType) {
+                    // Call equipHousingItem from gameWorld.js
+                    if (typeof equipHousingItem === 'function') {
+                        equipHousingItem(itemId); // equipHousingItem handles slot type internally
+                    } else {
+                        console.error("equipHousingItem function not found in gameWorld.js");
+                    }
+                    // updateHousingPreview(); // equipHousingItem should trigger this via calculateCharacterStats -> updateHousingPreview
+                    housingItemSelector.classList.add('modal-hidden'); // Close selector
+                    currentHousingSlotType = null;
+                } else {
+                    console.error("No housing slot type selected when item was clicked.");
+                }
+            }
+        });
+    } else {
+        console.error("Housing item selector grid or container not found.");
+    }
+
+
+    // --- Game Time Update ---
+    const gameTimeElement = document.getElementById('game-time');
+
+    function updateGameTime() {
+        if (!gameTimeElement) return; // Exit if element not found
+
+        const now = new Date();
+        const hours = now.getUTCHours().toString().padStart(2, '0');
+        const minutes = now.getUTCMinutes().toString().padStart(2, '0');
+        const seconds = now.getUTCSeconds().toString().padStart(2, '0');
+
+        gameTimeElement.textContent = `${hours}:${minutes}:${seconds} UTC`;
+    }
+
+    // Update time immediately and then every second
+    updateGameTime();
+    setInterval(updateGameTime, 1000);
 
     // --- Initial UI Setup ---
     loadUserInfo(); // Load username/alias first (this now also updates bottom bar alias)
@@ -1383,7 +1643,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (walletAddressElement) {
         walletAddressElement.textContent = 'Error loading address';
     }
-    // --- End Display Wallet Address ---
+    // --- REMOVED Show/Hide Link Wallet Button based on Guest Status ---
 
 
     // --- Protection Book Interactivity ---
@@ -1611,6 +1871,9 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error("Leaderboard power tab button not found.");
     }
 
+    // --- REMOVED Link Wallet Button Listener ---
+
+
     // --- SUI Wallet Integration Listeners ---
     document.addEventListener('suiWalletConnected', (event) => {
         console.log('uiManager received suiWalletConnected:', event.detail);
@@ -1654,10 +1917,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
-            console.log("Logout button clicked. Redirecting to login page.");
-            // Optional: Clear any local session data if needed before redirecting
-            // localStorage.clear(); // Example: Clears all local storage
-            window.location.href = 'login.html'; // Redirect to login page
+            console.log("Logout button clicked.");
+            const isGuest = localStorage.getItem('isGuestSession') === 'true';
+
+            if (!isGuest) {
+                // Only remove the stake address if it's a real wallet user logging out
+                console.log("Wallet user logging out. Clearing auth token.");
+                localStorage.removeItem('playerCardanoStakeAddress');
+            } else {
+                console.log("Guest user logging out. Keeping guest ID temporarily for potential wallet linking.");
+                // Optionally remove the guest flag now, although auth.js also handles this
+                // localStorage.removeItem('isGuestSession');
+            }
+
+            // Optional: Clear other relevant session data if needed (do this for both guest/wallet)
+            // localStorage.removeItem('playerUsername'); // Example
+            // localStorage.removeItem('playerAlias'); // Example
+            // localStorage.clear(); // Use with caution - clears everything
+
+            // Redirect to login page
+            window.location.href = 'login.html';
         });
     } else {
         console.error("Logout button not found!");
@@ -1735,3 +2014,126 @@ function clearPlayerIdentityUI() {
 
     // TODO: Consider resetting currentPlayerId or loading default player data
 }
+
+// --- Housing Modal UI Functions ---
+
+// Function to update the housing preview layers
+function updateHousingPreview() {
+    const previewArea = document.getElementById('housing-preview');
+    if (!previewArea) return;
+
+    const housingSlots = [
+        { slot: EquipmentType.BASE, elementId: 'housing-layer-base' },
+        { slot: EquipmentType.WALL_DECORATION, elementId: 'housing-layer-wall' },
+        { slot: EquipmentType.WEAPON_STASH, elementId: 'housing-layer-weapon' },
+        { slot: EquipmentType.LUXURY_FURNITURE, elementId: 'housing-layer-furniture' },
+        { slot: EquipmentType.SECURITY_SYSTEM, elementId: 'housing-layer-security' }
+    ];
+
+    housingSlots.forEach(({ slot, elementId }) => {
+        const imgElement = document.getElementById(elementId);
+        if (!imgElement) {
+            console.error(`Housing preview image element not found: #${elementId}`);
+            return;
+        }
+
+        const equippedItemId = playerEquipment[slot]; // Get ID from gameWorld.js playerEquipment
+        if (equippedItemId) {
+            const item = getEquipmentById(equippedItemId); // From equipment.js
+            if (item && item.image) {
+                imgElement.src = item.image;
+                imgElement.alt = item.name;
+                imgElement.style.display = 'block'; // Show the layer
+            } else {
+                // Item equipped but no image or definition found
+                imgElement.src = '';
+                imgElement.alt = `${slot} (Error)`;
+                imgElement.style.display = 'none'; // Hide layer if error
+                console.warn(`Housing item ${equippedItemId} in slot ${slot} has no image or definition.`);
+            }
+        } else {
+            // No item equipped in this slot
+            imgElement.src = '';
+            imgElement.alt = `${slot} Layer (Empty)`;
+            imgElement.style.display = 'none'; // Hide the layer
+        }
+    });
+    console.log("Housing preview updated.");
+}
+
+// Function to populate the housing item selector for a given slot type
+function populateHousingSelector(slotType) {
+    const selectorGrid = document.getElementById('housing-selector-grid');
+    const selectorTitle = document.querySelector('#housing-item-selector h3');
+    if (!selectorGrid || !selectorTitle) {
+        console.error("Housing item selector grid or title element not found.");
+        return;
+    }
+
+    selectorTitle.textContent = `Select Item for ${slotType}`;
+    selectorGrid.innerHTML = ''; // Clear previous items
+
+    // Filter player inventory for items matching the slotType
+    const availableItems = playerInventory.filter(invEntry => {
+        const itemDef = getEquipmentById(invEntry.id);
+        return itemDef && itemDef.equipmentType === slotType;
+    });
+
+    if (availableItems.length === 0) {
+        selectorGrid.innerHTML = '<p style="color: #888; text-align: center; grid-column: 1 / -1;">No suitable items in inventory.</p>';
+        return;
+    }
+
+    // Populate the grid
+    availableItems.forEach(invEntry => {
+        const itemDef = getEquipmentById(invEntry.id);
+        if (!itemDef) return; // Should not happen due to filter, but safety check
+
+        const itemDiv = document.createElement('div');
+        itemDiv.classList.add('selector-item'); // Use the CSS class defined
+        itemDiv.dataset.itemId = itemDef.id;
+        itemDiv.title = `${itemDef.name}\n${itemDef.description || ''}`;
+
+        if (itemDef.image) { // Prefer item image if available
+            const img = document.createElement('img');
+            img.src = itemDef.image; // Use housing image
+            img.alt = itemDef.name;
+            itemDiv.appendChild(img);
+        } else if (itemDef.icon) { // Fallback to icon
+             const img = document.createElement('img');
+             img.src = itemDef.icon;
+             img.alt = itemDef.name;
+             itemDiv.appendChild(img);
+        } else {
+            // Fallback text
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = itemDef.name.substring(0, 3);
+            itemDiv.appendChild(nameSpan);
+        }
+
+        // Optional: Add quantity if housing items become stackable in inventory (unlikely)
+        // if (invEntry.quantity > 1) { ... }
+
+        // Apply rarity glow to selector item
+        itemDiv.classList.remove('rarity-glow-common', 'rarity-glow-uncommon', 'rarity-glow-rare', 'rarity-glow-epic', 'rarity-glow-legendary', 'rarity-glow-mythic', 'rarity-glow-god-tier'); // Clear existing glows
+        if (itemDef.rarity && typeof Rarity !== 'undefined') {
+            const rarityKey = (typeof itemDef.rarity === 'object' ? itemDef.rarity.name : itemDef.rarity).toUpperCase().replace('-', '_');
+            const rarityInfo = Rarity[rarityKey];
+            if (rarityInfo) {
+                const glowClass = `rarity-glow-${rarityInfo.name.toLowerCase().replace(' ', '-')}`;
+                itemDiv.classList.add(glowClass);
+                itemDiv.style.borderColor = rarityInfo.color || '#5a4a3a'; // Also set border color
+            } else {
+                 itemDiv.style.borderColor = '#5a4a3a'; // Default border
+            }
+        } else {
+             itemDiv.style.borderColor = '#5a4a3a'; // Default border
+        }
+
+
+        selectorGrid.appendChild(itemDiv);
+    });
+}
+
+// Make updateHousingPreview globally accessible if needed (e.g., called from gameWorld.js)
+window.updateHousingPreview = updateHousingPreview;

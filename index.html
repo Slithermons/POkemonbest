@@ -26,6 +26,7 @@
     </div>
 
     <div id="mobile-container"> <!-- Start Mobile Container -->
+        <div id="game-time">00:00:00 UTC</div> <!-- Added Game Time Display -->
         <button id="show-dashboard-btn" class="show-ui-btn" title="Show User Dashboard">👤</button> <!-- Show Dashboard Button -->
         <div id="map">
             <!-- Map Control Buttons -->
@@ -80,6 +81,7 @@
         <div class="dashboard-section">
             <span class="label">Wallet:</span>
             <span class="value" id="user-wallet-address" title="Connected Cardano Wallet Address" style="font-size: 0.8em; word-break: break-all;">Not Connected</span>
+            <button id="link-wallet-btn" class="btn btn-blue" style="display: none; margin-top: 5px; width: 100%;">Link Wallet</button> <!-- Added Link Wallet Button -->
         </div>
         <!-- Inventory Section Removed from Dashboard -->
         <!-- Equipment/Inventory/Stats Buttons -->
@@ -114,8 +116,34 @@
                 <button id="action-stats-btn" class="action-btn" title="Stats">📊</button> <!-- Placeholder Icon -->
                 <button id="action-equipment-btn" class="action-btn" title="Equipment">⚔️</button> <!-- Placeholder Icon -->
                 <button id="action-inventory-btn" class="action-btn" title="Inventory">🎒</button> <!-- Placeholder Icon -->
+                <button id="action-housing-btn" class="action-btn" title="Housing">🏠</button> <!-- Housing Button Added -->
                 <button id="action-leaderboard-btn" class="action-btn" title="Leaderboard">🏆</button> <!-- Leaderboard Button -->
                 <button id="show-book-btn" class="action-btn" title="Show Protection Book">📖</button> <!-- Moved here, changed class -->
+            </div>
+        </div>
+
+        <!-- How to Play Modal -->
+        <div id="how-to-play-modal" class="modal modal-hidden">
+            <div class="modal-content">
+                <span class="close-btn" id="close-how-to-play-btn">&times;</span>
+                <h2>How to Play MobFi</h2>
+                <div class="how-to-play-content">
+                    <p>Welcome to MobFi! Here's a quick guide:</p>
+                    <ul>
+                        <li><strong>Explore:</strong> Move around the map using your device's GPS.</li>
+                        <li><strong>Cash Drops:</strong> Tap on money bags (<img src="https://img.icons8.com/external-flatart-icons-flat-flatarticons/64/000000/external-money-bag-valentines-day-flatart-icons-flat-flatarticons.png" alt="Cash" class="inline-icon">) to collect cash.</li>
+                        <li><strong>Businesses:</strong> Find businesses (<img src="img/business.png" alt="Business" class="inline-icon">) and shops (<img src="img/shop.png" alt="Shop" class="inline-icon">).</li>
+                        <li><strong>Organizations:</strong> Join an organization by visiting their base (<img src="img/org.png" alt="Base" class="inline-icon">).</li>
+                        <li><strong>Protection:</strong> Protect businesses within your organization's territory to earn passive income. Collect profits by tapping the business marker.</li>
+                        <li><strong>Rivals:</strong> Watch out for rival players (<img src="https://img.icons8.com/ios-filled/50/000000/user-secret.png" alt="Rival" class="inline-icon">)! Engage them in battle by tapping their marker.</li>
+                        <li><strong>Combat:</strong> Attack enemies, use items (from Inventory), and try to survive!</li>
+                        <li><strong>Inventory/Equipment:</strong> Manage your items and gear using the bottom bar buttons (🎒, ⚔️).</li>
+                        <li><strong>Stats:</strong> Check your progress and stats (📊).</li>
+                        <li><strong>Dashboard:</strong> Manage your alias, organization, and sound settings (👤).</li>
+                    </ul>
+                    <p>Good luck, boss!</p>
+                    <p>Join us on X: <a href="https://x.com/Web3MOBFI" target="_blank" rel="noopener noreferrer">https://x.com/Web3MOBFI</a></p>
+                </div>
             </div>
         </div>
     </div> <!-- End Mobile Container -->
@@ -207,7 +235,7 @@
             <!-- Inventory Tabs -->
             <div class="inventory-tabs">
                 <button class="tab-btn active-tab" data-category="all">All</button>
-                <button class="tab-btn" data-category="land">Land Plots</button>
+                <button class="tab-btn" data-category="housing-plots">Housing & Plots</button> <!-- Combined Tab -->
                 <button class="tab-btn" data-category="pets">Pets</button>
                 <button class="tab-btn" data-category="painting">Painting</button>
                 <!-- Add more tabs as needed -->
@@ -280,31 +308,6 @@
             </div>
             <div id="shop-message" class="shop-message" style="display: none;"></div> <!-- For buy/sell feedback -->
         </div>
-    </div>
-
-    <!-- How to Play Modal -->
-    <div id="how-to-play-modal" class="modal modal-hidden">
-        <div class="modal-content">
-            <span class="close-btn" id="close-how-to-play-btn">&times;</span>
-            <h2>How to Play MobFi</h2>
-            <div class="how-to-play-content">
-                <p>Welcome to MobFi! Here's a quick guide:</p>
-                <ul>
-                    <li><strong>Explore:</strong> Move around the map using your device's GPS.</li>
-                    <li><strong>Cash Drops:</strong> Tap on money bags (<img src="https://img.icons8.com/external-flatart-icons-flat-flatarticons/64/000000/external-money-bag-valentines-day-flatart-icons-flat-flatarticons.png" alt="Cash" class="inline-icon">) to collect cash.</li>
-                    <li><strong>Businesses:</strong> Find businesses (<img src="img/business.png" alt="Business" class="inline-icon">) and shops (<img src="img/shop.png" alt="Shop" class="inline-icon">).</li>
-                    <li><strong>Organizations:</strong> Join an organization by visiting their base (<img src="img/org.png" alt="Base" class="inline-icon">).</li>
-                    <li><strong>Protection:</strong> Protect businesses within your organization's territory to earn passive income. Collect profits by tapping the business marker.</li>
-                    <li><strong>Rivals:</strong> Watch out for rival players (<img src="https://img.icons8.com/ios-filled/50/000000/user-secret.png" alt="Rival" class="inline-icon">)! Engage them in battle by tapping their marker.</li>
-                    <li><strong>Combat:</strong> Attack enemies, use items (from Inventory), and try to survive!</li>
-                    <li><strong>Inventory/Equipment:</strong> Manage your items and gear using the bottom bar buttons (🎒, ⚔️).</li>
-                    <li><strong>Stats:</strong> Check your progress and stats (📊).</li>
-                    <li><strong>Dashboard:</strong> Manage your alias, organization, and sound settings (👤).</li>
-                </ul>
-                <p>Good luck, boss!</p>
-                <p>Join us on X: <a href="https://x.com/Web3MOBFI" target="_blank" rel="noopener noreferrer">https://x.com/Web3MOBFI</a></p>
-            </div>
-        </div>https://img.icons8.com/external-flatart-icons-flat-flatarticons/64/000000/external-money-bag-valentines-day-flatart-icons-flat-flatarticons.png
     </div>
 
     <!-- Battle Modal -->
@@ -395,6 +398,43 @@
                     <li>Loading...</li>
                 </ol>
             </div>
+        </div>
+    </div>
+
+    <!-- Housing Modal -->
+    <div id="housing-modal" class="modal modal-hidden">
+        <div class="modal-content housing-modal-content"> <!-- Added specific class -->
+            <span class="close-btn" id="close-housing-btn">&times;</span>
+            <h2>Housing</h2>
+            <div class="housing-interface">
+                <!-- Preview Area -->
+                <div id="housing-preview" class="housing-preview-area">
+                    <!-- Layered images will go here, controlled by CSS/JS -->
+                    <img id="housing-layer-base" src="" alt="Base Layer" class="housing-layer">
+                    <img id="housing-layer-wall" src="" alt="Wall Decoration Layer" class="housing-layer">
+                    <img id="housing-layer-weapon" src="" alt="Weapon Stash Layer" class="housing-layer">
+                    <img id="housing-layer-furniture" src="" alt="Luxury Furniture Layer" class="housing-layer">
+                    <img id="housing-layer-security" src="" alt="Security System Layer" class="housing-layer">
+                </div>
+                <!-- Slot Selection Buttons/Areas -->
+                <div class="housing-slots">
+                    <button class="housing-slot-btn" data-slot-type="Base">Base</button>
+                    <button class="housing-slot-btn" data-slot-type="WallDecoration">Wall</button>
+                    <button class="housing-slot-btn" data-slot-type="WeaponStash">Weapon</button>
+                    <button class="housing-slot-btn" data-slot-type="LuxuryFurniture">Furniture</button>
+                    <button class="housing-slot-btn" data-slot-type="SecuritySystem">Security</button>
+                </div>
+                <!-- Item Selector (Initially Hidden) -->
+                <div id="housing-item-selector" class="housing-item-selector modal-hidden">
+                    <h3>Select Item</h3>
+                    <div id="housing-selector-grid">
+                        <!-- Items for the selected slot will be populated here -->
+                    </div>
+                    <button id="close-housing-selector-btn" class="btn btn-grey">Cancel</button>
+                </div>
+            </div>
+             <!-- Optional: Add summary section for housing stats/power if needed -->
+            <!-- <div class="housing-summary"> ... </div> -->
         </div>
     </div>
 </body>

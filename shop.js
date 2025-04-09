@@ -12,63 +12,52 @@ const rarityMultipliers = {
 };
 
 class Shop {
-    // Rarity multipliers moved outside the class
-    constructor(name, inventory) {
+    constructor(name) { // Removed inventory parameter
         this.name = name;
-        this.inventory = this.initializeInventory(inventory); // Items the shop sells
+        this.inventory = this.initializeInventory(); // Items the shop sells - initializes from global databases
     }
 
-    // Initialize shop inventory with consumables and one of each equipment type
-    initializeInventory(baseInventory) {
+    // Initialize shop inventory dynamically from global databases
+    initializeInventory() {
         let shopStock = {};
-
-        // Add all consumables from the base item list
-        if (baseInventory.consumables) {
-            for (const key in baseInventory.consumables) {
-                if (baseInventory.consumables.hasOwnProperty(key)) {
-                    shopStock[key] = { ...baseInventory.consumables[key], quantity: Infinity }; // Shops have infinite consumables
-                }
-            }
-        } // End of consumables loop (Removed extra brace)
+        const BASE_EQUIPMENT_PRICE = 100; // Base price for calculating equipment cost
+        const DEFAULT_ITEM_PRICE = 25; // Default price for items from items.js without a price
 
         // --- Add items from items.js (itemsDatabase) ---
         if (typeof itemsDatabase !== 'undefined') {
             itemsDatabase.forEach((item, id) => {
-                // Only add if it's not already added (e.g., consumables)
-                // and it's not equipment (handled separately below)
-                if (!shopStock[id] && item.itemType !== ItemType.EQUIPMENT) {
-                    shopStock[id] = {
-                        ...item,
-                        price: item.price || 25, // Default price 25 for non-consumable items from items.js
-                        quantity: Infinity // Shops have infinite stock
-                    };
-                    console.log(`Added item from items.js to shop: ${item.name} ($${shopStock[id].price})`);
-                }
+                // Add all items from items.js
+                shopStock[id] = {
+                    ...item, // Spread the original item properties
+                    price: item.price || DEFAULT_ITEM_PRICE, // Use defined price or default
+                    quantity: Infinity // Shops have infinite stock
+                };
+                // console.log(`Added item from items.js to shop: ${item.name} ($${shopStock[id].price})`);
             });
         } else {
-            console.warn("itemsDatabase not found when adding items to shop inventory.");
+            console.warn("itemsDatabase not found when initializing shop inventory.");
         }
-        // --- End adding items from items.js ---
 
+        // --- Add equipment from equipment.js (equipmentDatabase) ---
+        if (typeof equipmentDatabase !== 'undefined' && typeof Rarity !== 'undefined') {
+            equipmentDatabase.forEach((item, id) => {
+                // Add all equipment items
+                const rarityKey = (typeof item.rarity === 'object' ? item.rarity.name : item.rarity).toLowerCase().replace('-', '_');
+                const multiplier = rarityMultipliers[rarityKey] || 1; // Use global multipliers
+                const calculatedPrice = Math.round(BASE_EQUIPMENT_PRICE * multiplier); // Calculate price based on rarity
 
-        // Add one of each base equipment type (assuming common rarity)
-         if (baseInventory.equipment) {
-            for (const type in baseInventory.equipment) {
-                if (baseInventory.equipment.hasOwnProperty(type)) {
-                    const equipmentList = baseInventory.equipment[type];
-                    if (equipmentList.length > 0) {
-                        // Find the first 'common' item of this type, or just the first item if none are common
-                        let itemToAdd = equipmentList.find(item => item.rarity === 'common') || equipmentList[0];
-                        // Ensure the item added is a distinct copy and set price
-                        shopStock[itemToAdd.id] = {
-                            ...itemToAdd,
-                            price: 100, // Specific price for equipment in shop
-                            quantity: Infinity // Shops have infinite equipment
-                        };
-                    }
-                }
-            }
+                shopStock[id] = {
+                    ...item, // Spread the original equipment properties
+                    price: calculatedPrice, // Assign calculated price
+                    quantity: Infinity // Shops have infinite stock
+                };
+                // console.log(`Added equipment from equipment.js to shop: ${item.name} ($${shopStock[id].price})`);
+            });
+        } else {
+            console.warn("equipmentDatabase or Rarity object not found when initializing shop inventory.");
         }
+
+        console.log(`Shop initialized with ${Object.keys(shopStock).length} unique items.`);
         return shopStock;
     }
 

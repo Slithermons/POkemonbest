@@ -1,9 +1,10 @@
 // auth.js
 // NOTE: Assumes Lucid library is available (e.g., via CDN or npm install + bundler)
 // If using CDN, replace the import with how the library exposes itself globally.
-import { Lucid, Blockfrost } from "https://unpkg.com/lucid-cardano@0.10.7/web/mod.js"; // Using unpkg CDN for example - Removed WalletApi
+import { Lucid, Blockfrost } from "https://unpkg.com/lucid-cardano@0.10.7/web/mod.js"; // Using unpkg CDN for example
 
 const connectButton = document.getElementById('connect-wallet-btn');
+// const guestLoginButton = document.getElementById('guest-login-btn'); // REMOVED guest button reference
 const walletInfoDiv = document.getElementById('wallet-info');
 const errorMessageDiv = document.getElementById('error-message');
 
@@ -90,7 +91,10 @@ async function connectWallet() {
         // --- Store Stake Address and Redirect ---
         // Use stake address as the unique player ID
         localStorage.setItem('playerCardanoStakeAddress', stakeAddress);
-        displayWalletInfo(stakeAddress);
+        // Remove guest flag if it exists (though it shouldn't with guest login removed)
+        localStorage.removeItem('isGuestSession');
+
+        displayWalletInfo(stakeAddress); // Update UI
 
         // Redirect to the main game page after a short delay
         setTimeout(() => {
@@ -105,9 +109,11 @@ async function connectWallet() {
         } else {
              displayError("An unknown error occurred during wallet connection.");
         }
-        console.error("Full connection error:", error);
+    console.error("Full connection error:", error);
     }
 }
+
+// --- Guest Login Handler (REMOVED) ---
 
 // --- Initialization ---
 if (connectButton) {
@@ -115,6 +121,8 @@ if (connectButton) {
 } else {
     console.error("Connect wallet button not found!");
 }
+
+// REMOVED Guest login button listener
 
 // Optional: Check if already connected on page load (less common for login pages)
 // (async () => {

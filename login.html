@@ -5,57 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MobFi - Login</title>
     <link rel="stylesheet" href="style.css"> <!-- Reuse existing styles -->
-    <style>
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background-color: #1a1a1a; /* Dark background */
-            color: #e0e0e0;
-            font-family: sans-serif;
-        }
-        .login-container {
-            background-color: #2a2a2a;
-            padding: 40px;
-            border-radius: 8px;
-            text-align: center;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-        }
-        .login-container h1 {
-            margin-bottom: 30px;
-            color: #fff;
-        }
-        #connect-wallet-btn {
-            padding: 12px 25px;
-            font-size: 1.1em;
-            cursor: pointer;
-            /* Use existing button styles if available, or add basic ones */
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            transition: background-color 0.3s ease;
-        }
-        #connect-wallet-btn:hover {
-            background-color: #0056b3;
-        }
-        #wallet-info {
-            margin-top: 20px;
-            font-size: 0.9em;
-            color: #aaa;
-        }
-         #error-message {
-            margin-top: 15px;
-            color: #ff4d4d;
-            font-weight: bold;
-        }
-    </style>
+    <!-- Inline styles removed, now in style.css -->
 </head>
 <body>
     <div class="login-container">
         <h1>Welcome to MobFi</h1>
-        <button id="connect-wallet-btn">Connect Cardano Wallet</button>
+        <button id="connect-wallet-btn" class="btn btn-brown">Connect Cardano Wallet</button>
+        <!-- Guest Login Button Removed -->
         <div id="wallet-info"></div>
         <div id="error-message"></div>
     </div>

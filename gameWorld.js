@@ -154,7 +154,11 @@ function initializeNewPlayerState(playerId) {
     playerExperience = 0;
     playerStats = { influence: 10, strength: 10, agility: 10, vitality: 10, hitRate: 10 };
     playerInventory = [];
-    playerEquipment = { Head: null, Mask: null, Body: null, Gloves: null, Pants: null, Boots: null, Accessory: null, Charm: null, Weapon: null };
+    // Initialize with all slots, including housing
+    playerEquipment = {
+        Head: null, Mask: null, Body: null, Gloves: null, Pants: null, Boots: null, Accessory: null, Charm: null, Weapon: null,
+        Base: null, WallDecoration: null, WeaponStash: null, LuxuryFurniture: null, SecuritySystem: null
+    };
     currentCash = 100; // Start with some cash
     currentUserOrganization = null;
     currentOrganizationBaseLocation = null;
@@ -190,7 +194,11 @@ function resetLocalPlayerState() {
     playerExperience = 0;
     playerStats = { influence: 10, strength: 10, agility: 10, vitality: 10, hitRate: 10 };
     playerInventory = [];
-    playerEquipment = { Head: null, Mask: null, Body: null, Gloves: null, Pants: null, Boots: null, Accessory: null, Charm: null, Weapon: null };
+    // Reset with all slots, including housing
+    playerEquipment = {
+        Head: null, Mask: null, Body: null, Gloves: null, Pants: null, Boots: null, Accessory: null, Charm: null, Weapon: null,
+        Base: null, WallDecoration: null, WeaponStash: null, LuxuryFurniture: null, SecuritySystem: null
+    };
     currentCash = 0; // Reset cash to 0 for logged-out state
     currentUserOrganization = null;
     currentOrganizationBaseLocation = null;
@@ -228,8 +236,11 @@ let playerCharacterStats = { // Calculated from base stats and equipment - Defau
 };
 // Updated playerEquipment structure - Default value
 let playerEquipment = {
+    // Standard Slots
     Head: null, Mask: null, Body: null, Gloves: null, Pants: null,
-    Boots: null, Accessory: null, Charm: null, Weapon: null
+    Boots: null, Accessory: null, Charm: null, Weapon: null,
+    // Housing Slots
+    Base: null, WallDecoration: null, WeaponStash: null, LuxuryFurniture: null, SecuritySystem: null
 };
 
 // --- Constants ---
@@ -487,6 +498,138 @@ function unequipItem(slotType, triggerRecalculation = true) {
     }
 }
 
+// --- Housing Equipment Management ---
+
+// Function specifically for equipping housing items
+function equipHousingItem(itemId) {
+    // 1. Get Item Definition & Check Type
+    const itemToEquip = getEquipmentById(itemId); // From equipment.js
+    if (!itemToEquip || itemToEquip.itemType !== 'Equipment') {
+        console.error(`Item ${itemId} is not valid equipment.`);
+        showCustomAlert("This item cannot be equipped as housing.");
+        return;
+    }
+
+    // Check if it's a valid housing slot type
+    const housingSlots = [
+        EquipmentType.BASE, EquipmentType.WALL_DECORATION, EquipmentType.WEAPON_STASH,
+        EquipmentType.LUXURY_FURNITURE, EquipmentType.SECURITY_SYSTEM
+    ];
+    if (!housingSlots.includes(itemToEquip.equipmentType)) {
+        console.error(`Item ${itemId} (${itemToEquip.name}) is not a housing item. Type: ${itemToEquip.equipmentType}`);
+        showCustomAlert(`${itemToEquip.name} cannot be placed in housing.`);
+        return;
+    }
+
+    // 2. Check if Player Has the Item in Inventory
+    const inventoryIndex = playerInventory.findIndex(entry => entry.id === itemId);
+    if (inventoryIndex === -1) {
+        console.error(`Attempted to equip housing item ${itemId} not found in inventory.`);
+        showCustomAlert("You don't have this item in your inventory.");
+        return;
+    }
+
+    // 3. Check Requirements (if housing items have them)
+    const combinedStatsForReqCheck = { ...playerStats, level: playerLevel };
+    if (!itemToEquip.meetsRequirements(combinedStatsForReqCheck)) {
+        console.log(`Player does not meet requirements for housing item ${itemToEquip.name}.`);
+        let reqMessage = "Requirements not met:";
+        for (const req in itemToEquip.requirements) {
+            reqMessage += ` ${req} ${itemToEquip.requirements[req]} (You have: ${combinedStatsForReqCheck[req] || 0})`;
+        }
+        showCustomAlert(reqMessage);
+        return;
+    }
+
+    // 4. Determine Slot & Handle Existing Item
+    const slotType = itemToEquip.equipmentType; // e.g., EquipmentType.BASE
+    // We already validated slotType is a housing slot and playerEquipment includes it.
+
+    const currentlyEquippedItemId = playerEquipment[slotType];
+    if (currentlyEquippedItemId) {
+        // Unequip the item currently in the slot first
+        unequipHousingItem(slotType, false); // Pass false to prevent immediate UI update/recalculation yet
+    }
+
+    // 5. Move Item from Inventory to Equipment Slot
+    if (playerInventory[inventoryIndex].quantity > 1) {
+        playerInventory[inventoryIndex].quantity -= 1;
+    } else {
+        playerInventory.splice(inventoryIndex, 1);
+    }
+    playerEquipment[slotType] = itemId; // Assign the new item ID to the housing slot
+
+    // 6. Recalculate Stats & Update UI
+    console.log(`Equipped housing item ${itemToEquip.name} in ${slotType} slot.`);
+    calculateCharacterStats(); // Recalculate derived stats (if housing provides stats)
+    updateInventoryUI(); // Update inventory modal display
+    // TODO: Call updateHousingPreview() in uiManager.js when it's created
+    if (typeof updateHousingPreview === 'function') {
+        updateHousingPreview();
+    } else {
+        console.warn("updateHousingPreview function not yet defined in uiManager.");
+    }
+    showCustomAlert(`Equipped ${itemToEquip.name}.`);
+
+    // Save game state after equipping housing item
+    if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
+        SaveManager.saveGame(gatherCurrentGameState()).catch(err => {
+            if (!(err instanceof Error && (err.message === 'Auth session missing!' || err.name === 'AuthSessionMissingError'))) {
+                 console.error("Unexpected save error after equipping housing item:", err);
+            }
+        });
+    }
+}
+
+// Function specifically for unequipping housing items
+function unequipHousingItem(slotType, triggerRecalculation = true) {
+    // Validate it's a housing slot
+    const housingSlots = [
+        EquipmentType.BASE, EquipmentType.WALL_DECORATION, EquipmentType.WEAPON_STASH,
+        EquipmentType.LUXURY_FURNITURE, EquipmentType.SECURITY_SYSTEM
+    ];
+     if (!housingSlots.includes(slotType)) {
+        console.error(`Invalid housing equipment slot type for unequip: ${slotType}`);
+        return;
+    }
+
+    const itemIdToUnequip = playerEquipment[slotType];
+    if (!itemIdToUnequip) {
+        console.log(`No housing item equipped in ${slotType} slot.`);
+        return; // Nothing to unequip
+    }
+
+    // 1. Add Item Back to Inventory
+    addItemToInventory(itemIdToUnequip, 1); // Adds back to inventory stack or creates new entry
+
+    // 2. Clear Equipment Slot
+    playerEquipment[slotType] = null;
+
+    // 3. Recalculate Stats & Update UI (optional based on flag)
+    const item = getEquipmentById(itemIdToUnequip);
+    console.log(`Unequipped housing item ${item ? item.name : itemIdToUnequip} from ${slotType} slot.`);
+    if (triggerRecalculation) {
+        calculateCharacterStats(); // Recalculate derived stats
+        updateInventoryUI(); // Update inventory modal display
+        // TODO: Call updateHousingPreview() in uiManager.js when it's created
+        if (typeof updateHousingPreview === 'function') {
+            updateHousingPreview();
+        } else {
+            console.warn("updateHousingPreview function not yet defined in uiManager.");
+        }
+        showCustomAlert(`Unequipped ${item ? item.name : 'item'}.`);
+
+        // Save game state after unequipping housing item
+        if (typeof SaveManager !== 'undefined' && SaveManager.saveGame) {
+            SaveManager.saveGame(gatherCurrentGameState()).catch(err => {
+                 if (!(err instanceof Error && (err.message === 'Auth session missing!' || err.name === 'AuthSessionMissingError'))) {
+                     console.error("Unexpected save error after unequipping housing item:", err);
+                }
+            });
+        }
+    }
+}
+
 
 // --- Experience & Leveling ---
 function calculateExpNeeded(level) {
@@ -723,12 +866,68 @@ function useItem(itemId) {
     // Handle Consumables
     if (itemDefinition.itemType === ItemType.CONSUMABLE) {
         let used = false;
-        // Apply effect (e.g., healing)
-        if (itemDefinition.effect && itemDefinition.effect.health) {
+        let saveNeeded = false; // Flag to check if state needs saving
+
+        // --- Handle Briefcases ---
+        if (itemDefinition.subType === ConsumableType.BRIEFCASE && itemDefinition.effect?.open) {
+            const briefcaseRarityName = itemDefinition.effect.rarityName;
+            console.log(`Opening ${briefcaseRarityName} Briefcase...`);
+
+            // Define Loot Pools (Example - adjust item IDs and chances as needed)
+            // Ensure Rarity object from equipment.js is available
+            if (typeof Rarity === 'undefined') {
+                console.error("Rarity object not found! Cannot determine loot pools.");
+                showCustomAlert("Error opening briefcase: Rarity system unavailable.");
+                return; // Stop if Rarity isn't loaded
+            }
+
+            const lootPools = {
+                [Rarity.COMMON.name]: ['MED001', 'FOOD001', 'CRAFT001', 'HEAD001', 'GLOV001', 'PANT001', 'BOOT001'],
+                [Rarity.UNCOMMON.name]: ['MED001', 'FOOD002', 'CRAFT002', 'HEAD002', 'MASK001', 'BODY002', 'PANT003', 'BOOT002', 'ACCS002', 'CHARM001', 'WEAP003'],
+                [Rarity.RARE.name]: ['MED002', 'DRUG002', 'HEAD003', 'MASK003', 'BODY003', 'BOOT003', 'ACCS003', 'CHARM002', 'WEAP005'],
+                [Rarity.EPIC.name]: ['DRUG003', 'GLOV003', 'CHARM003', 'WEAP004', 'BASE004', 'WSTASH003', 'FURN003'], // Added housing items
+                [Rarity.LEGENDARY.name]: ['WEAP004'], // Placeholder - Add actual Legendary items
+                [Rarity.MYTHIC.name]: ['WEAP004'], // Placeholder - Add actual Mythic items
+                [Rarity.GOD_TIER.name]: ['WEAP004'] // Placeholder - Add actual God-Tier items
+            };
+
+            // Determine which pool to draw from based on briefcase rarity
+            // Simple logic: Draw from the briefcase's rarity pool
+            const targetPool = lootPools[briefcaseRarityName];
+
+            if (!targetPool || targetPool.length === 0) {
+                console.error(`No loot pool defined for rarity: ${briefcaseRarityName}`);
+                showCustomAlert(`Error opening briefcase: Invalid loot pool.`);
+                return;
+            }
+
+            // Select a random item ID from the pool
+            const awardedItemId = targetPool[Math.floor(Math.random() * targetPool.length)];
+
+            // Get the definition of the awarded item
+            const awardedItemDef = getItemById(awardedItemId) || getEquipmentById(awardedItemId); // Check both databases
+
+            if (!awardedItemDef) {
+                console.error(`Awarded item ID ${awardedItemId} has no definition!`);
+                showCustomAlert(`Error opening briefcase: Invalid item awarded.`);
+                return; // Don't consume briefcase if awarded item is invalid
+            }
+
+            // Add the awarded item to inventory
+            addItemToInventory(awardedItemId, 1); // addItemToInventory handles its own saving, but we flag saveNeeded anyway
+
+            // Show confirmation
+            showCustomAlert(`Opened ${itemDefinition.name} and found: ${awardedItemDef.name}!`);
+            used = true;
+            saveNeeded = true; // Mark state changed
+
+        // --- Handle Other Consumables (like Medkits) ---
+        } else if (itemDefinition.effect && itemDefinition.effect.health) {
             if (playerCurrentHp < playerMaxHp) {
-                healPlayer(itemDefinition.effect.health); // healPlayer handles saving
+                healPlayer(itemDefinition.effect.health); // healPlayer handles its own saving
                 showCustomAlert(`Used ${itemDefinition.name}. Restored ${itemDefinition.effect.health} HP.`);
                 used = true;
+                saveNeeded = true; // Mark state changed
             } else {
                 showCustomAlert(`${itemDefinition.name} has no effect. HP is already full.`);
                 return; // Don't consume if no effect
@@ -737,10 +936,18 @@ function useItem(itemId) {
         // Add other consumable effects here (e.g., drugs, food)
         // else if (itemDefinition.effect && itemDefinition.effect.boost) { ... }
 
+        // Add other consumable effects here (e.g., drugs, food)
+        // else if (itemDefinition.effect && itemDefinition.effect.boost) { used = true; saveNeeded = true; ... }
+
         // Remove item from inventory if used
         if (used) {
-            removeItemFromInventory(itemId, 1); // removeItemFromInventory handles saving
-            // removeItemFromInventory already calls updateInventoryUI
+            // removeItemFromInventory handles its own saving and UI update
+            removeItemFromInventory(itemId, 1);
+            // No need to call save again here unless other state changed *outside* of heal/removeItem
+        } else if (itemDefinition.subType !== ConsumableType.BRIEFCASE) {
+             // Only show "cannot use" if it wasn't a briefcase (which might fail silently on error)
+             // and wasn't a medkit used at full health
+             showCustomAlert(`Cannot use ${itemDefinition.name} right now.`);
         }
     }
     // Handle Non-Consumables (Tools, Keys, etc.) - if needed
@@ -888,11 +1095,16 @@ async function fetchBasesInBounds(bounds) {
     console.log("Querying Overpass API for bases in bounds:", bounds);
      try {
         const response = await fetch(overpassUrl, { method: 'POST', body: query });
-        const data = await response.json();
+        // Check if the response was successful before parsing JSON
+        if (!response.ok) {
+            throw new Error(`Overpass API request failed with status ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json(); // Now safe to parse
         console.log("Overpass response received:", data.elements.length, "elements");
         return processOverpassElements(data.elements); // Process and return structured base info
     } catch (error) {
-        console.error("Error fetching data from Overpass API:", error);
+        // Log the specific error (could be network error, status error, or JSON parse error)
+        console.error("Error fetching or processing base data from Overpass API:", error);
         showCustomAlert("Could not fetch nearby bases. The service might be busy."); // Use custom alert (defined in uiManager.js)
         return []; // Return empty array on error
     }
@@ -913,11 +1125,15 @@ async function fetchBasesAroundPoint(lat, lon, radiusMeters) {
     console.log(`Querying Overpass API for bases around [${lat}, ${lon}] within ${radiusMeters}m...`);
     try {
         const response = await fetch(overpassUrl, { method: 'POST', body: query });
-        const data = await response.json();
+        // Check if the response was successful before parsing JSON
+        if (!response.ok) {
+            throw new Error(`Overpass API request failed with status ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json(); // Now safe to parse
         console.log("Overpass response received:", data.elements.length, "elements");
         return processOverpassElements(data.elements);
     } catch (error) {
-        console.error("Error fetching data from Overpass API:", error);
+        console.error("Error fetching or processing base data from Overpass API:", error);
         return [];
     }
 }
@@ -1294,7 +1510,7 @@ function activateProtection(businessId) {
 
 // Function to fetch nearby businesses based on the allowed list
 async function fetchBusinessesInBounds(bounds) {
-    const overpassUrl = 'https://overpass-api.de/api/interpreter';
+    const overpassUrl = 'https://lz4.overpass-api.de/api/interpreter'; // Changed to alternative instance
     // Expanded query to fetch all potentially relevant types
     const query = `
         [out:json][timeout:30];
@@ -1328,11 +1544,15 @@ async function fetchBusinessesInBounds(bounds) {
     console.log("Querying Overpass API for specific business types in bounds:", bounds);
     try {
         const response = await fetch(overpassUrl, { method: 'POST', body: query });
-        const data = await response.json();
+        // Check if the response was successful before parsing JSON
+        if (!response.ok) {
+            throw new Error(`Overpass API request failed with status ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json(); // Now safe to parse
         console.log("Overpass business response received:", data.elements.length, "elements");
         return processBusinessElements(data.elements);
     } catch (error) {
-        console.error("Error fetching business data from Overpass API:", error);
+        console.error("Error fetching or processing business data from Overpass API:", error);
         // Don't alert for business errors, could be too frequent
         return [];
     }
